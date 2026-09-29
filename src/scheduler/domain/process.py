@@ -72,7 +72,7 @@ class Processo:
         self.prioridade_dinamica = self.prioridade_estatica
 
 
-    def consumir_segundo(self) -> None:
+    def executar_um_tick(self) -> None:
         """
         Consome 1 unidade de CPU do processo.
 
@@ -85,7 +85,7 @@ class Processo:
         """
         if self.tempo_restante <= 0:
             raise RuntimeError(
-                f"Processo {self.id}: tentativa de consumir um segundo com "
+                f"Processo {self.id}: tentativa de executar tick com "
                 f"tempo_restante={self.tempo_restante}"
             )
 
