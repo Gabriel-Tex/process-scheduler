@@ -1,5 +1,13 @@
 # Decisões de Implementação
 
+## Sumário
+* [`src/scheduler/domain/process.py`: Entidades de Domínio e Gestão de Estado](#srcschedulerdomainprocesspy-entidades-de-domínio-e-gestão-de-estado)
+* [`src/scheduler/domain/configuration.py`: Configurações Globais da Simulação](#srcschedulerdomainconfigurationpy-configurações-globais-da-simulação)
+* [`src/scheduler/schedulers/base.py`: Interface dos Escalonadores e Regra de Desempate](#srcschedulerschedulersbasepy-interface-dos-escalonadores-e-regra-de-desempate)
+* [`src/scheduler/schedulers/factory.py`: Fábrica de Escalonadores](#srcschedulerschedulersfactorypy-fábrica-de-escalonadores)
+
+---
+
 ## `src/scheduler/domain/process.py`: Entidades de Domínio e Gestão de Estado
 
 Esta secção documenta as decisões de arquitetura e padrões de projeto aplicadas ao núcleo do simulador, especificamente às estruturas que representam os processos (ou tarefas) e o seu ciclo de vida. O objetivo principal é garantir um modelo de domínio robusto, validado e independente da lógica dos algoritmos de escalonamento.
