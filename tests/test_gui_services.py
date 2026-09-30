@@ -53,6 +53,11 @@ class ControladorTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Linha 2"):
             self.c.validar_processos("0 1 1\n1 abc 2")
 
+    def test_preempcao_desativada_rejeita_rr_sem_mudar_suas_regras(self):
+        with self.assertRaisesRegex(ValueError, "cooperativo"):
+            self.c.executar("0 2 1", "2", "1", ["rr"], permitir_preempcao=False)
+        self.assertFalse(self.servico.chamadas)
+
     def test_demonstracao_independente_e_consistente(self):
         resultado = ServicoDemonstrativo.carregar()[0]
         self.assertEqual(len(resultado.registros), 14)

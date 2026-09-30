@@ -6,7 +6,7 @@ Projeto da disciplina de Sistemas Operacionais, em Python.
 
 Abra **SimuladorEscalonamento.exe**. O executável inclui Python e Tkinter;
 não precisa abrir terminal nem instalar dependências para usar a interface.
-Pode ser copiado para outra pasta. Ele contém a versão do código do momento
+Mantenha o executável e a pasta `_internal` juntos; copie a pasta completa. Ele contém a versão do código do momento
 em que foi gerado: depois de alterar o projeto, gere outro executável.
 
 Para gerar novamente a partir do código (requer Python 3.10+ com Tkinter):
@@ -15,7 +15,7 @@ Para gerar novamente a partir do código (requer Python 3.10+ com Tkinter):
 powershell -File .\gerar_executavel.ps1
 ```
 
-O resultado fica em `dist/SimuladorEscalonamento.exe`. Se necessário, informe o
+O resultado fica em `dist/SimuladorEscalonamento/SimuladorEscalonamento.exe`. Se necessário, informe o
 caminho do Python com `-Python "C:\caminho\python.exe"`.
 O ambiente `.venv-build` é usado apenas para o empacotamento.
 O arquivo `.spec` inclui os módulos carregados dinamicamente pela fábrica.
@@ -23,7 +23,7 @@ O arquivo `.spec` inclui os módulos carregados dinamicamente pela fábrica.
 Validação opcional do pacote, para quem gera uma nova versão:
 
 ```powershell
-Start-Process -FilePath .\dist\SimuladorEscalonamento.exe -ArgumentList '--verificar', 'verificacao.json' -Wait
+Start-Process -FilePath .\dist\SimuladorEscalonamento\SimuladorEscalonamento.exe -ArgumentList '--verificar', 'verificacao.json' -Wait
 Get-Content verificacao.json
 ```
 
@@ -52,7 +52,7 @@ O painel **Espera por processo** mostra o tempo total que cada processo esperou
 na execução selecionada, em segundos. São valores da execução completa,
 independentes do ponto da reprodução: término − chegada − duração.
 **Ctrl+Tab** alterna Gantt e texto sem reiniciar a reprodução.
-Para modificar uma linha existente, use **Salvar edição** antes de executar.
+Para modificar uma linha existente, use **Editar** antes de executar.
 
 **A demonstração usa dados fixos e não executa os processos digitados.**
 A identificação de demonstração permanece no rodapé e no nome do resultado.
@@ -89,7 +89,7 @@ Uma linha por processo, com chegada, duração e prioridade:
 
 IDs seguem a ordem da tabela. Chegada e prioridade devem ser inteiros não negativos;
 duração, quantum e aging devem ser inteiros positivos.
-Selecionar uma linha preenche o formulário; **Salvar edição** altera a linha,
+Selecionar uma linha preenche o formulário; **Editar** altera a linha,
 enquanto **Adicionar** cria outra. Um arquivo inválido não apaga a tabela atual.
 
 Configuração:
@@ -119,3 +119,35 @@ python -m unittest discover -s tests -p test_gui_services.py -v
 Veja [o contrato e o roteiro do épico 3](docs/epico_3_interface.md).
 As decisões anteriores e as novas convenções estão em
 [decisões de implementação](docs/decisoes_implementacao.md).
+
+## Versão portátil em Python
+
+O arquivo `SimuladorEscalonamento.pyz` reúne o programa em um único arquivo,
+sem caminhos específicos deste computador. Requer Python 3.10 ou superior,
+Tkinter e uma sessão gráfica. Pode ser usado em Windows, Linux ou macOS:
+
+```text
+python SimuladorEscalonamento.pyz
+```
+
+Em sistemas que usam o nome `python3`, use `python3 SimuladorEscalonamento.pyz`.
+Para gerar o arquivo, rode `python gerar_portatil.py`; ele será gravado em `dist/`.
+A versão portátil foi verificada no Windows com Python isolado, sem importar
+arquivos do repositório. Linux e macOS não foram testados nesta máquina.
+
+## Preempção e navegação
+
+**Permitir preempção** é um filtro dos algoritmos oficiais, inicialmente marcado:
+
+- Marcado: permite escolher também RR, RR com envelhecimento, SRTF e Prioridade Preemptiva.
+- Desmarcado: mantém apenas FCFS, SJF e Prioridade Cooperativa, quando registrados.
+- Nos Round-Robin, a preempção ocorre por quantum; nunca por chegada de prioridade maior.
+- Prioridade Preemptiva e SRTF seguem suas próprias regras quando forem implementados.
+
+Quantum só fica editável para Round-Robin; aging só para RR com envelhecimento.
+A opção não converte RR em outro algoritmo. Enquanto o épico 2 estiver pendente,
+desmarcar a opção deixa a lista sem algoritmos e a tela explica o motivo.
+
+**Voltar** pausa e recua um segundo, sem alterar a execução calculada.
+A aba selecionada fica cinza, com fonte maior e em negrito. Use **Editar**
+para aplicar alterações na linha selecionada.

@@ -94,15 +94,31 @@ class AppGUI(tk.Tk):
         estilo.map("Treeview", background=[("selected", "#dbeafe")],
                    foreground=[("selected", "#153e75")])
         estilo.configure("TNotebook.Tab", padding=(12, 5))
+        estilo.configure("Timeline.TNotebook.Tab", padding=(12, 5),
+                         font=("Segoe UI", 10), background="#f8fafc", foreground="#64748b")
+        estilo.map("Timeline.TNotebook.Tab",
+                   background=[("selected", "#cbd5e1"), ("active", "#e2e8f0")],
+                   foreground=[("selected", "#1e293b")],
+                   font=[("selected", ("Segoe UI", 11, "bold"))],
+                   padding=[("selected", (16, 7))])
 
     def _entrada_alterada(self):
         self._versao_entrada += 1
+        if hasattr(self, "botao_executar"):
+            self._atualizar_botoes()
         if hasattr(self, "aviso") and not self._demo and self.controlador.resultados:
             self.aviso.set("Entrada alterada • execute novamente para atualizar os resultados.")
 
     def _atualizar_botoes(self):
-        self.botao_executar.state(["disabled"] if self._ocupado or self.motivo else ["!disabled"])
+        selecionados = self.config.selecionados()
+        self.botao_executar.state(["disabled"] if self._ocupado or self.motivo or not selecionados else ["!disabled"])
         self.botao_demo.state(["disabled"] if self._ocupado else ["!disabled"])
+        mensagem = self.motivo or "Motor conectado • pronto para executar."
+        if not self.motivo and not selecionados:
+            mensagem = ("Os algoritmos sem preempção do épico 2 ainda não estão disponíveis."
+                        if not self.config.permitir_preempcao.get() and not self.config.algoritmos
+                        else "Selecione pelo menos um algoritmo.")
+        self.disponibilidade.configure(text=mensagem)
 
     def demonstrar(self):
         self._demo = True
@@ -113,8 +129,9 @@ class AppGUI(tk.Tk):
         if self._ocupado or self.motivo:
             return
         # Capturar todos os valores Tk antes de criar a thread.
-        valores = (self.entrada.obter_texto(), self.config.quantum.get(),
-                   self.config.aging.get(), self.config.selecionados())
+        quantum, aging = self.config.valores_config()
+        valores = (self.entrada.obter_texto(), quantum, aging,
+                   self.config.selecionados(), self.config.permitir_preempcao.get())
         try:
             self.controlador.validar_processos(valores[0])
             self.controlador.validar_config(valores[1], valores[2])

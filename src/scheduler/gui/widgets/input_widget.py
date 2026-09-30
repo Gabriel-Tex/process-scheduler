@@ -39,7 +39,7 @@ class EntradaWidget(ttk.LabelFrame):
             ttk.Entry(formulario, textvariable=var, width=9).grid(
                 row=1, column=i, sticky="ew", padx=(0, 8))
         ttk.Button(formulario, text="Adicionar", command=self.adicionar).grid(row=1, column=3)
-        ttk.Button(formulario, text="Salvar edição", command=self.editar).grid(
+        ttk.Button(formulario, text="Editar", command=self.editar).grid(
             row=1, column=4, padx=(6, 0))
         acoes = ttk.Frame(self)
         acoes.grid(row=3, column=0, sticky="ew")

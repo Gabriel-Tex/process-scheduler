@@ -81,6 +81,58 @@ class JanelaTests(unittest.TestCase):
         self.assertTrue(all("disabled" in b.state() for b in self.app.gantt.botoes))
         self.assertIn("tempo", self.app.gantt.texto.get("1.0", "end"))
 
+    def test_voltar_pausa_e_nao_ultrapassa_inicio(self):
+        self.app.demonstrar()
+        self.app.update()
+        g = self.app.gantt
+        g.play()
+        g.voltar_tick()
+        self.app.update()
+        self.assertEqual(g.indice, 0)
+        self.assertIsNone(g._agendamento)
+        self.assertFalse(g._tocando)
+        g.voltar_tick()
+        self.assertEqual(g.indice, 0)
+        g.finalizar()
+        g.voltar_tick()
+        self.app.update()
+        self.assertEqual(g.indice, 13)
+        self.assertEqual(g._pintado_ate, 13)
+
+    def test_aba_selecionada_cinza_com_fonte_maior(self):
+        from tkinter import ttk, font
+        estilo = ttk.Style(self.app)
+        selecionada = estilo.lookup("Timeline.TNotebook.Tab", "background", ("selected",))
+        normal = estilo.lookup("Timeline.TNotebook.Tab", "background")
+        self.assertEqual(selecionada, "#cbd5e1")
+        self.assertNotEqual(selecionada, normal)
+        maior = font.Font(root=self.app, font=estilo.lookup("Timeline.TNotebook.Tab", "font", ("selected",)))
+        menor = font.Font(root=self.app, font=estilo.lookup("Timeline.TNotebook.Tab", "font"))
+        self.assertGreater(maior.actual("size"), menor.actual("size"))
+
+    def test_sem_preempcao_exclui_rr_e_informa_pendencia(self):
+        cfg = self.app.config
+        cfg.permitir_preempcao.set(False)
+        cfg._atualizar_lista()
+        self.assertEqual(cfg.selecionados(), [])
+        self.assertIn("disabled", self.app.botao_executar.state())
+        self.assertIn("épico 2", self.app.disponibilidade.cget("text"))
+        self.assertTrue(all("disabled" in e.state() for e in cfg._entradas_numericas))
+        cfg.permitir_preempcao.set(True)
+        cfg._atualizar_lista()
+        self.assertIn("rr", cfg.selecionados())
+        self.assertNotIn("disabled", self.app.botao_executar.state())
+
+    def test_futuros_cooperativos_podem_ser_selecionados_sem_quantum(self):
+        from src.scheduler.gui.widgets.config_widget import ConfigWidget
+        cfg = ConfigWidget(self.app, ["fcfs", "sjf", "prioc", "srtf", "priop", "rr"])
+        cfg.permitir_preempcao.set(False)
+        cfg._atualizar_lista()
+        self.assertEqual(cfg.selecionados(), ["fcfs", "sjf", "prioc"])
+        cfg.quantum.set("não usado")
+        self.assertEqual(cfg.valores_config(), ("2", "1"))
+        cfg.destroy()
+
     def test_redimensionar_e_rolar_diagrama_longo(self):
         self.app.deiconify()
         self.app.geometry("1000x900")

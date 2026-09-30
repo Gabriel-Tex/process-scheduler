@@ -26,6 +26,7 @@ class GanttWidget(ttk.LabelFrame):
         barra.grid(row=1, column=0, sticky="ew", pady=(0, 8))
         self.botoes = []
         for texto, comando in (("Reproduzir", self.play), ("Pausar", self.pause),
+                               ("Voltar", self.voltar_tick),
                                ("Avançar", self.avancar_tick), ("Reiniciar", self.reiniciar),
                                ("Ir ao fim", self.finalizar)):
             b = ttk.Button(barra, text=texto, command=comando)
@@ -41,7 +42,7 @@ class GanttWidget(ttk.LabelFrame):
         corpo.grid(row=2, column=0, sticky="nsew")
         corpo.columnconfigure(0, weight=1)
         corpo.rowconfigure(0, weight=1)
-        self.abas = ttk.Notebook(corpo)
+        self.abas = ttk.Notebook(corpo, style="Timeline.TNotebook")
         self.abas.grid(row=0, column=0, sticky="nsew")
         self.visual = visual = ttk.Frame(self.abas)
         visual.rowconfigure(0, weight=1)
@@ -237,6 +238,14 @@ class GanttWidget(ttk.LabelFrame):
     def avancar_tick(self):
         self.pause()
         self._avancar()
+
+    def voltar_tick(self):
+        """Volta um segundo e pausa; os registros originais não são alterados."""
+        self.pause()
+        if self.resultado and self.resultado.registros:
+            self.indice = max(0, self.indice - 1)
+            self.progresso.configure(text=f"{self.indice} / {len(self.resultado.registros)} s")
+            self._solicitar_desenho()
 
     def pause(self):
         self._tocando = False

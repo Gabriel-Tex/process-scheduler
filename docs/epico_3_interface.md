@@ -186,3 +186,15 @@ atual. Pausado ou finalizado, mudar de aba reaproveita o desenho existente.
 O botão **Ir ao fim** mostra toda a execução sem aguardar a animação.
 Os totais de espera são sempre da execução completa; não são contadores parciais
 da reprodução. A execução real e a demonstração continuam explicitamente separadas.
+
+## Preempção conforme o enunciado
+
+A opção de configuração filtra a lista; não altera políticas de escalonamento.
+`ALGORITMOS_PREEMPTIVOS` identifica rr, rr_prio_aging, srtf e priop.
+O controlador também rejeita essas seleções quando a permissão está desativada.
+FCFS, SJF e prioc poderão ser selecionados sem quantum ao serem registrados.
+A chegada de uma prioridade maior continua sem interromper os Round-Robin.
+
+O botão Voltar cancela o agendamento, limita o índice a zero e repinta somente
+as células afetadas pelo recuo. As abas usam um estilo próprio, com o estado
+selecionado cinza e maior, sem confundir seleção com o estado do mouse.

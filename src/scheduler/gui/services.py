@@ -19,6 +19,9 @@ NOMES_ALGORITMOS = {
     "rr": "Round-Robin", "rr_prio_aging": "Round-Robin + envelhecimento",
 }
 
+# Classificação oficial: o filtro da GUI não altera a política dos algoritmos.
+ALGORITMOS_PREEMPTIVOS = frozenset({"rr", "rr_prio_aging", "srtf", "priop"})
+
 
 class ServicoSimulacao(Protocol):
     def listar_algoritmos(self) -> list[str]: ...
