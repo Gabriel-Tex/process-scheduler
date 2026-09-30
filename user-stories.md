@@ -24,13 +24,14 @@ Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + 
 ### 1.1 Modelagem do domínio
 * **História:** Como desenvolvedor, quero as entidades `Processo`, `StatusProcesso` e `Configuracao` prontas, para que os outros dois épicos tenham um contrato estável desde o primeiro dia.
 * **Critérios de Aceitação:**
-  * `Processo` guarda: id, instante de criação, duração original, tempo restante, prioridade estática, prioridade dinâmica, status, instante de início/término.
+  * `Processo` guarda: id, instante de criação, tempo de processamento (duração original), tempo restante, prioridade estática, prioridade dinâmica, status, instante de início/término.
   * `Configuracao` guarda: `quantum` e `aging`.
 * **Passos:**
   1. Criar `StatusProcesso` (enum: `NOVO`, `PRONTO`, `EXECUTANDO`, `FINALIZADO`).
-  2. Criar `Processo` como dataclass com os campos acima e um método simples `executar_um_tick()`.
+  2. Criar `Processo` como dataclass com os campos acima, um método `executar_um_tick()` e uma property `finalizado`.
   3. Criar `Configuracao` como dataclass simples.
   4. ⚠️ **Avisar o time assim que este arquivo estiver pronto** — é o bloqueio principal dos outros épicos.
+* **Arquivos:** `src/scheduler/domain/process.py`, `src/scheduler/domain/configuration.py`
 
 ### 1.2 Interface abstrata dos escalonadores + regra de desempate + fábrica
 * **História:** Como desenvolvedor, quero uma interface comum (`EscalonadorBase`) e uma função de desempate compartilhada, para que qualquer algoritmo implementado pelos colegas se encaixe no motor sem alterações.
@@ -39,34 +40,41 @@ Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + 
     1. Processo já em execução;
     2. Menor tempo restante;
     3. Escolha aleatória.
-  * Existe um registro (`fabrica.py`) que mapeia `nome do algoritmo → construtor`, vazio no início, para os colegas registrarem suas classes.
+  * Existe um registro (`factory.py`) que mapeia `nome do algoritmo → construtor`, vazio no início, para os colegas registrarem suas classes.
 * **Passos:**
   1. Definir `EscalonadorBase` com `ao_chegar`, `selecionar_proximo` (abstrato) e `ao_finalizar_tick` (hook opcional, no-op por padrão).
-  2. Implementar `desempate(candidatos, em_execucao, rng)` seguindo a regra dos 3 critérios.
+  2. Implementar `desempatar(candidatos, em_execucao, aleatorio)` seguindo a regra dos 3 critérios.
   3. Receber um `random.Random` por injeção (não usar `random` global direto), para deixar comportamento reprodutível.
-  4. Criar `fabrica.py` com um dicionário `{nome: construtor}` e uma função `criar(nome, config)`.
+  4. Criar `factory.py` com `registrar(nome, construtor)`, `criar(nome, configuracao, aleatorio)` e `listar_algoritmos()`.
   5. ⚠️ **Publicar essa interface para o time** (ex.: num PR pequeno) antes de seguir para as próximas histórias.
+* **Arquivos:** `src/scheduler/schedulers/base.py`, `src/scheduler/schedulers/factory.py`
 
 ### 1.3 Leitura da entrada padrão (stdin)
 * **História:** Como usuário do simulador, quero fornecer processos via `stdin` no formato `instante duração prioridade`, para simular meu próprio cenário.
 * **Critérios de Aceitação:**
   * Cada linha vira um processo, com id atribuído na ordem em que aparece (`P1`, `P2`, ...), não reordenado por instante de chegada.
-  * Erros de formato geram mensagem clara.
+  * Erros de formato geram `EntradaInvalidaError` (subclasse de `ValueError`) com indicação do número da linha.
 * **Passos:**
-  1. Ler linha a linha de `sys.stdin`.
+  1. Implementar `ler_processos(entrada: TextIO) -> list[Processo]` — recebe o fluxo de texto por parâmetro, sem chamar `sys.stdin` diretamente (desacoplamento da fonte concreta).
   2. Fazer split por espaços (um ou mais) e converter para inteiros.
-  3. Validar (`duração > 0`, `instante ≥ 0`, `prioridade ≥ 0`); levantar erro descritivo se inválido.
-  4. Retornar lista de especificações de processo (não instâncias mutáveis — isso evita vazamento de estado entre execuções de algoritmos diferentes).
+  3. Não duplicar a validação de domínio (`tempo_processamento > 0`, `instante_criacao >= 0`, `prioridade_estatica >= 0`) — propagar o `ValueError` do `Processo.__post_init__` com contexto de linha.
+  4. Ignorar linhas em branco silenciosamente.
+  5. Retornar lista de `Processo` na ordem de leitura.
+* **Arquivos:** `src/scheduler/io/input_reader.py`
 
 ### 1.4 Leitura do arquivo de configuração
 * **História:** Como usuário do simulador, quero configurar quantum e taxa de envelhecimento por um arquivo texto, para parametrizar os algoritmos Round-Robin.
 * **Critérios de Aceitação:**
   * Aceita o formato `quantum:2` / `aging:1` exatamente como no exemplo da tarefa.
+  * Ambas as chaves são obrigatórias; ausência de qualquer uma levanta `ConfiguracaoInvalidaError`.
+  * Chaves desconhecidas e chaves repetidas são tratadas como erro.
 * **Passos:**
-  1. Ler o arquivo linha a linha, dividir por `:`.
-  2. Tolerar espaços em branco extras.
-  3. Montar e retornar um `Configuracao`.
-  4. Definir e documentar o que acontece se `aging` ou `quantum` faltar (erro claro, já que os RR dependem deles).
+  1. Implementar `ler_configuracao(arquivo: TextIO) -> Configuracao` — recebe o arquivo já aberto por parâmetro, sem chamar `open()` internamente.
+  2. Dividir cada linha por `:` (com `maxsplit=1`), tolerar espaços em branco extras e normalizar chaves para minúsculas.
+  3. Validar que `quantum > 0` e `aging > 0` (a `Configuracao` não possui validação interna).
+  4. Ignorar linhas em branco e linhas de comentário (iniciadas por `#`).
+  5. Montar e retornar um `Configuracao`.
+* **Arquivos:** `src/scheduler/io/config_reader.py`
 
 ### 1.5 Diagrama de tempo
 * **História:** Como usuário do simulador, quero ver o diagrama de execução tick a tick, para visualizar como cada algoritmo se comportou.
