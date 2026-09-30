@@ -5,6 +5,7 @@
 * [`src/scheduler/domain/configuration.py`: Configurações Globais da Simulação](#srcschedulerdomainconfigurationpy-configurações-globais-da-simulação)
 * [`src/scheduler/schedulers/base.py`: Interface dos Escalonadores e Regra de Desempate](#srcschedulerschedulersbasepy-interface-dos-escalonadores-e-regra-de-desempate)
 * [`src/scheduler/schedulers/factory.py`: Fábrica de Escalonadores](#srcschedulerschedulersfactorypy-fábrica-de-escalonadores)
+* [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
 
 ---
 
@@ -119,3 +120,33 @@ Se a função `criar()` for chamada sem fornecer uma instância de `random.Rando
 
 ### 6. `listar_algoritmos()` Preserva a Ordem de Inserção
 A função devolve os nomes na ordem em que foram registados, aproveitando a garantia de ordenação dos dicionários do Python 3.7+. A CLI utiliza esta lista para iterar sobre "todos os algoritmos" no modo padrão e para apresentar as opções válidas ao utilizador.
+
+## `src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão
+
+Esta secção documenta as decisões relativas à transformação do texto de entrada (uma linha por processo, três inteiros separados por espaços) em objectos `Processo` do domínio. O módulo é responsável exclusivamente pelo *parsing* e pela validação estrutural — não executa simulação, não imprime resultados e não lê ficheiros de configuração.
+
+### 1. Recepção do Fluxo por Parâmetro (`TextIO`)
+A função `ler_processos` recebe o fluxo de texto como parâmetro (`TextIO`) em vez de chamar `sys.stdin` directamente. Esta decisão desacopla a lógica de *parsing* da fonte concreta de dados:
+* A camada de CLI (história futura) é quem decide que a fonte é `sys.stdin`.
+* Para verificação manual ou testes, basta passar `io.StringIO("0 5 2\n0 2 3")` — sem necessidade de redirecionamento de terminal ou *mocking* de `sys`.
+
+### 2. Excepção Própria (`EntradaInvalidaError`)
+Foi definida uma subclasse de `ValueError` específica para erros de *parsing* da entrada. Isto permite que a CLI (implementada numa história posterior) trate erros de entrada de forma diferenciada de outros `ValueError` do sistema (ex.: erros de domínio internos), oferecendo mensagens de erro mais contextualizadas ao utilizador final.
+
+### 3. IDs Atribuídos por Ordem de Leitura (Nunca por `instante_criacao`)
+Os identificadores `P1`, `P2`, `P3`, … são atribuídos sequencialmente na ordem em que cada linha não vazia é lida. Conforme o PDF da atividade explicita, "essa listagem não precisa necessariamente estar ordenada por data de criação" — logo o módulo **nunca** reordena a entrada antes de atribuir IDs. O contador de IDs só é incrementado para linhas com conteúdo (linhas em branco não consomem IDs).
+
+### 4. Divisão com `str.split()` sem Argumentos
+A escolha de `str.split()` (sem argumento separador) é deliberada: divide por **um ou mais** caracteres de espaço em branco consecutivos (espaços, tabs, etc.), cobre automaticamente o requisito do PDF ("inteiros separados por um ou mais espaços em branco") e também descarta espaços no início e no fim da *string* — tornando desnecessário um `.strip()` prévio no conteúdo já guardado.
+
+### 5. Numeração de Linhas 1-Based com `enumerate(..., start=1)`
+Todas as mensagens de erro reportam o número da linha como um humano o leria no ficheiro (começando em 1, não em 0). Isto é especialmente útil quando o professor testa o simulador com conjuntos de dados maiores e precisa localizar rapidamente uma entrada inválida.
+
+### 6. Não Duplicação da Validação de Domínio
+O módulo não replica as verificações que já existem em `Processo.__post_init__` (ex.: `tempo_processamento > 0`, `instante_criacao >= 0`). Essas violações são deixadas propagar naturalmente até ao `ValueError` do construtor de `Processo`, que é então embrulhado numa `EntradaInvalidaError` com o número da linha acrescentado. Isto garante um ponto único de verdade para regras de domínio e evita inconsistências se as regras forem alteradas no futuro.
+
+### 7. Linhas em Branco Ignoradas Silenciosamente
+Linhas que contêm apenas espaços, tabs ou nenhum caractere são ignoradas sem erro. Esta decisão é pragmática: ficheiros de texto frequentemente contêm linhas vazias no final ou entre blocos de dados, e tratá-las como erro seria uma fonte desnecessária de frustração para o utilizador.
+
+### 8. Tratamento de Inteiros com Sinal
+A conversão via `int()` do Python aceita naturalmente sinais explícitos (ex.: `+5`, `-1`). Valores negativos que violem regras de domínio (ex.: `instante_criacao = -1`) são rejeitados pelo `Processo.__post_init__`, não pelo *parser*. Valores positivos com sinal explícito (`+5`) são aceites como equivalentes a `5`. Esta é a semântica nativa de `int()` e não foi restrita por não haver qualquer indicação no enunciado de que sinais explícitos devam ser proibidos.
