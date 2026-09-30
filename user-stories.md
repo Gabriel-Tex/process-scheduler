@@ -84,10 +84,13 @@ Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + 
     * `--` para quem está pronto/aguardando;
     * Célula em branco para quem ainda não chegou ou já terminou.
   * Formato idêntico ao exemplo do enunciado.
+  * Funciona com zero ticks (devolve apenas o cabeçalho).
 * **Passos:**
-  1. Criar `DiagramaTempo` que recebe, a cada tick, o id de quem executou (ou nenhum) e o conjunto de ids já chegados/ainda não finalizados.
-  2. Guardar essas linhas internamente.
-  3. Implementar um método de renderização para texto no formato pedido.
+  1. Criar `DiagramaTempo(ids_processos: Sequence[str])` — fixa a ordem das colunas na criação, independente do domínio (trabalha só com `str` e conjuntos).
+  2. Implementar `registrar_tick(executando: str | None, presentes: Iterable[str])` — tempo implícito pela ordem das chamadas (tick 0, 1, 2, …).
+  3. Implementar `renderizar() -> str` — devolve o diagrama formatado como texto, sem chamar `print`.
+  4. Colunas de largura dinâmica, alinhadas à direita, separadas por dois espaços.
+* **Arquivos:** `src/scheduler/simulator/diagram.py`
 
 ### 1.6 Cálculo de métricas e resultado consolidado
 * **História:** Como usuário do simulador, quero ver tempo médio de execução, tempo médio de espera e número de trocas de contexto por algoritmo, para comparar os algoritmos entre si.

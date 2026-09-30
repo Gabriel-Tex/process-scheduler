@@ -7,6 +7,7 @@
 * [`src/scheduler/schedulers/factory.py`: Fábrica de Escalonadores](#srcschedulerschedulersfactorypy-fábrica-de-escalonadores)
 * [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
 * [`src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração](#srcschedulerioconfig_readerpy-leitura-do-arquivo-de-configuração)
+* [`src/scheduler/simulator/diagram.py`: Diagrama de Tempo](#srcschedulersimulatordiagrampy-diagrama-de-tempo)
 
 ---
 
@@ -182,3 +183,36 @@ As chaves são convertidas para minúsculas antes da comparação (`chave.strip(
 
 ### 9. Suporte a Comentários (`#`)
 Linhas iniciadas por `#` (após remoção de espaços iniciais) são tratadas como comentários e ignoradas silenciosamente. O PDF da atividade não menciona comentários no ficheiro de configuração, mas o ficheiro de exemplo do projecto (`config/config.txt`) já contém linhas de comentário. Esta funcionalidade foi adicionada como conveniência sem custo de complexidade, e está documentada aqui por não ser um requisito explícito do enunciado.
+
+## `src/scheduler/simulator/diagram.py`: Diagrama de Tempo
+
+Esta secção documenta as decisões relativas à classe `DiagramaTempo`, responsável por acumular o estado de cada tick de simulação e renderizar o diagrama de tempo no formato de texto exigido pelo PDF da atividade. A classe é puramente de apresentação — não sabe o que é um `Processo`, não decide nada sobre escalonamento e não calcula métricas.
+
+### 1. Independência Total do Domínio
+`DiagramaTempo` não importa nada de `dominio/`, `escalonadores/`, `io/`, `cli/` ou `gui/`. Trabalha exclusivamente com `str` (ids de processos) e coleções da biblioteca padrão (`frozenset`, `list`). Esta independência é deliberada: permite testar o diagrama isoladamente, sem precisar de instanciar `Processo`, executar escalonadores ou simular o motor. Basta chamar `registrar_tick` manualmente com valores inventados.
+
+### 2. Ordem das Colunas Fixada na Criação
+O construtor recebe a lista de ids dos processos na ordem em que devem aparecer como colunas (tipicamente `P1, P2, P3, …`, na ordem de leitura da entrada). Esta ordem é imutável após a criação. A alternativa — descobrir colunas dinamicamente à medida que os ticks são registados — causaria problemas: a ordem das colunas dependeria da ordem em que os processos chegam ou terminam, o que tornaria o diagrama imprevisível e difícil de comparar com a referência do PDF.
+
+### 3. Tempo Implícito pela Ordem das Chamadas
+O método `registrar_tick` não recebe o número do tick como parâmetro. A primeira chamada corresponde ao tick 0, a segunda ao tick 1, e assim por diante. Esta simplificação elimina a possibilidade de registar ticks fora de ordem ou com buracos, e reduz a interface ao mínimo necessário — o motor (implementado noutra história) apenas chama `registrar_tick` a cada iteração do seu laço.
+
+### 4. Duas Informações por Tick: `executando` + `presentes`
+Cada tick é representado por duas informações já resolvidas pelo motor: quem está na CPU (`executando`, um `str` ou `None`) e o conjunto de ids que já chegaram e ainda não terminaram (`presentes`). A classe não precisa de saber tempo restante, prioridade ou qualquer outro atributo de `Processo` — toda a lógica de escalonamento já foi decidida antes.
+
+### 5. Regra das Três Células
+A renderização aplica a regra do PDF com prioridade explícita:
+1. Se o id é igual a `executando` → `##` (independentemente de estar em `presentes`).
+2. Se o id está em `presentes` mas não é `executando` → `--`.
+3. Se o id está ausente de `presentes` e não é `executando` → célula em branco.
+
+O critério 1 tem prioridade sobre o critério 2 por design: `executando` pode ou não aparecer em `presentes` (dependendo de como o motor implementa a lógica), e o diagrama produz o resultado correcto em ambos os casos.
+
+### 6. Armazenamento com `frozenset`
+Os ids presentes de cada tick são convertidos para `frozenset` no momento do registo, em vez de guardar o iterável original. Isto garante: (a) imutabilidade — nenhuma alteração posterior ao conjunto externo afecta o diagrama; (b) operações de pertença (`in`) em tempo $O(1)$ durante a renderização.
+
+### 7. Colunas de Largura Dinâmica
+Cada coluna de processo tem largura igual a `max(2, len(id))` — 2 é o mínimo para caber `##` e `--`, e ids mais longos (ex.: `P10`, `P100`) expandem a coluna automaticamente. A coluna de tempo também se ajusta ao rótulo mais largo (`0-1` vs `99-100`). As colunas são separadas por dois espaços e alinhadas à direita, garantindo um alinhamento consistente independentemente do número de ticks ou processos.
+
+### 8. Zero Ticks Produz Apenas o Cabeçalho
+Chamar `renderizar()` sem ter registado nenhum tick devolve apenas a linha de cabeçalho (`tempo  P1  P2  …`), sem lançar erro. Isto é útil para cenários de teste e evita tratar um caso especial no motor ("se não houver processos, não renderize").
