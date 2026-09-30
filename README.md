@@ -2,33 +2,21 @@
 
 Projeto da disciplina de Sistemas Operacionais, em Python.
 
-## Abrir com dois cliques (Windows)
+## Rodar depois de clonar
 
-Abra **SimuladorEscalonamento.exe**. O executável inclui Python e Tkinter;
-não precisa abrir terminal nem instalar dependências para usar a interface.
-Mantenha o executável e a pasta `_internal` juntos; copie a pasta completa. Ele contém a versão do código do momento
-em que foi gerado: depois de alterar o projeto, gere outro executável.
+Com Python 3.10 ou superior e Tkinter instalados, abra um terminal na raiz do
+repositório e execute:
 
-Para gerar novamente a partir do código (requer Python 3.10+ com Tkinter):
-
-```powershell
-powershell -File .\gerar_executavel.ps1
+```text
+python SimuladorEscalonamento.pyz
 ```
 
-O resultado fica em `dist/SimuladorEscalonamento/SimuladorEscalonamento.exe`. Se necessário, informe o
-caminho do Python com `-Python "C:\caminho\python.exe"`.
-O ambiente `.venv-build` é usado apenas para o empacotamento.
-O arquivo `.spec` inclui os módulos carregados dinamicamente pela fábrica.
+O arquivo portátil está incluído na raiz; não precisa gerar executável nem
+instalar dependências com pip. No Linux/macOS, o comando pode ser `python3`.
+Tkinter e uma sessão gráfica são necessários.
 
-Validação opcional do pacote, para quem gera uma nova versão:
-
-```powershell
-Start-Process -FilePath .\dist\SimuladorEscalonamento\SimuladorEscalonamento.exe -ArgumentList '--verificar', 'verificacao.json' -Wait
-Get-Content verificacao.json
-```
-
-Essa verificação abre a GUI oculta, executa os dois Round-Robin e verifica
-esperas, registros e widgets. `ok: true` confirma o teste da versão empacotada.
+O `.pyz` é uma versão empacotada do código. Durante o desenvolvimento, use o
+comando abaixo para executar imediatamente suas alterações nos arquivos `src/`.
 
 ## Abrir a interface pelo código
 
@@ -120,21 +108,6 @@ Veja [o contrato e o roteiro do épico 3](docs/epico_3_interface.md).
 As decisões anteriores e as novas convenções estão em
 [decisões de implementação](docs/decisoes_implementacao.md).
 
-## Versão portátil em Python
-
-O arquivo `SimuladorEscalonamento.pyz` reúne o programa em um único arquivo,
-sem caminhos específicos deste computador. Requer Python 3.10 ou superior,
-Tkinter e uma sessão gráfica. Pode ser usado em Windows, Linux ou macOS:
-
-```text
-python SimuladorEscalonamento.pyz
-```
-
-Em sistemas que usam o nome `python3`, use `python3 SimuladorEscalonamento.pyz`.
-Para gerar o arquivo, rode `python gerar_portatil.py`; ele será gravado em `dist/`.
-A versão portátil foi verificada no Windows com Python isolado, sem importar
-arquivos do repositório. Linux e macOS não foram testados nesta máquina.
-
 ## Preempção e navegação
 
 **Permitir preempção** é um filtro dos algoritmos oficiais, inicialmente marcado:
@@ -151,3 +124,11 @@ desmarcar a opção deixa a lista sem algoritmos e a tela explica o motivo.
 **Voltar** pausa e recua um segundo, sem alterar a execução calculada.
 A aba selecionada fica cinza, com fonte maior e em negrito. Use **Editar**
 para aplicar alterações na linha selecionada.
+
+### Por que quantum zero não é aceito?
+
+A história 1.4 do planejamento exige `quantum > 0`. As histórias 3.1 e 3.2
+usam uma fatia de tempo positiva para o Round-Robin e seu envelhecimento.
+Interpretar zero como uma fatia ilimitada mudaria essas políticas. Portanto,
+zero continua inválido; algoritmos sem quantum deixam esse campo desabilitado.
+O arquivo de configuração mantém o contrato original de valores positivos.
