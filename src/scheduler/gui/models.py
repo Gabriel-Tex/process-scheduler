@@ -19,3 +19,4 @@ class ResultadoGUI:
     ids_processos: tuple[str, ...]
     # None significa que o motor ainda não fornece registros estruturados.
     registros: tuple[TickGUI, ...] | None = None
+    esperas: tuple[tuple[str, int], ...] = ()

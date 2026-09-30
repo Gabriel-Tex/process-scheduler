@@ -220,8 +220,9 @@ Chamar `renderizar()` sem ter registado nenhum tick devolve apenas a linha de ca
 ## Épico 3: Tkinter, Round-Robin e integração
 
 A interface usa Tkinter + ttk e separa widgets, controlador e serviços. O modo
-demonstrativo é explícito e não executa entradas do usuário. O motor e as métricas
-continuam sob responsabilidade do épico 1.
+demonstrativo é explícito e não executa entradas do usuário. Para habilitar a
+simulação real solicitada, o motor compartilhado e as métricas foram implementados;
+a CLI e os algoritmos restantes continuam como entregas dos outros épicos.
 
 O RR simples usa deque. O RR com envelhecimento usa uma lista de prontos e
 envelhece somente os processos em espera ao fechar um quantum completo, sem
@@ -231,3 +232,14 @@ maior valor numérico significa maior prioridade.
 A GUI consome resultados por adaptador, com registros por tick opcionais e sem
 acessar atributos privados do diagrama. Consulte [o contrato e o roteiro](epico_3_interface.md)
 para a ordem dos hooks, a convenção de envelhecimento, os testes e as dependências.
+
+### Execução real e desempenho da interface
+
+O motor avança um segundo por vez, usando somente o contrato EscalonadorBase.
+Ele registra chegadas e presenças antes de consumir a CPU; o término ocorre no
+instante t + 1. A espera individual é término − chegada − duração.
+Os resultados carregam tanto as médias quanto os pares (ID, espera total).
+
+A interface recebe os processos cadastrados pelo serviço real. Para evitar
+trabalho repetido, preserva células do Canvas, não desenha a aba oculta e agrupa
+pedidos de desenho com after_idle. Alternar abas não reinicia a reprodução.

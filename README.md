@@ -2,7 +2,35 @@
 
 Projeto da disciplina de Sistemas Operacionais, em Python.
 
-## Abrir a interface
+## Abrir com dois cliques (Windows)
+
+Abra **SimuladorEscalonamento.exe**. O executável inclui Python e Tkinter;
+não precisa abrir terminal nem instalar dependências para usar a interface.
+Pode ser copiado para outra pasta. Ele contém a versão do código do momento
+em que foi gerado: depois de alterar o projeto, gere outro executável.
+
+Para gerar novamente a partir do código (requer Python 3.10+ com Tkinter):
+
+```powershell
+powershell -File .\gerar_executavel.ps1
+```
+
+O resultado fica em `dist/SimuladorEscalonamento.exe`. Se necessário, informe o
+caminho do Python com `-Python "C:\caminho\python.exe"`.
+O ambiente `.venv-build` é usado apenas para o empacotamento.
+O arquivo `.spec` inclui os módulos carregados dinamicamente pela fábrica.
+
+Validação opcional do pacote, para quem gera uma nova versão:
+
+```powershell
+Start-Process -FilePath .\dist\SimuladorEscalonamento.exe -ArgumentList '--verificar', 'verificacao.json' -Wait
+Get-Content verificacao.json
+```
+
+Essa verificação abre a GUI oculta, executa os dois Round-Robin e verifica
+esperas, registros e widgets. `ok: true` confirma o teste da versão empacotada.
+
+## Abrir a interface pelo código
 
 Na raiz do repositório, em um terminal com Python **3.10 ou superior** e Tkinter:
 
@@ -16,8 +44,15 @@ Não há dependências externas para a interface ou os testes.
 
 1. Clique em **Carregar exemplo** ou cadastre os processos.
 2. Ajuste quantum e aging, ou carregue o arquivo `config/config.txt`.
-3. Clique em **Ver demonstração** para explorar a tabela e o diagrama.
-4. Clique em **Reproduzir** ou **Avançar** para acompanhar os ticks.
+3. Selecione **Round-Robin** e/ou **Round-Robin + envelhecimento**.
+4. Clique em **Executar simulação** para usar os processos cadastrados.
+5. Selecione um resultado; clique em **Reproduzir**, **Avançar** ou **Ir ao fim**.
+
+O painel **Espera por processo** mostra o tempo total que cada processo esperou
+na execução selecionada, em segundos. São valores da execução completa,
+independentes do ponto da reprodução: término − chegada − duração.
+**Ctrl+Tab** alterna Gantt e texto sem reiniciar a reprodução.
+Para modificar uma linha existente, use **Salvar edição** antes de executar.
 
 **A demonstração usa dados fixos e não executa os processos digitados.**
 A identificação de demonstração permanece no rodapé e no nome do resultado.
@@ -32,11 +67,13 @@ O Gantt começa no instante zero; o diagrama textual mostra a sequência complet
 | Tabela comparativa, Gantt e controles de reprodução | Implementados |
 | Round-Robin (`rr`) | Implementado e testado |
 | Round-Robin com prioridade e envelhecimento (`rr_prio_aging`) | Implementado e testado |
-| Motor, métricas e CLI do épico 1 | Dependência pendente |
+| Motor simples e métricas (incluindo espera individual) | Implementados para habilitar a execução real |
+| CLI do épico 1 | Dependência pendente |
 | Algoritmos do épico 2 | Dependência pendente |
 
-**Executar simulação** fica desabilitado enquanto `MotorSimulacao` não existir.
-Os Round-Robin estão prontos para o motor; a GUI não contém um motor alternativo.
+**Executar simulação** está habilitado: um único motor compartilhado executa
+os dois Round-Robin e pode receber os algoritmos dos colegas.
+O botão **Ver demonstração** continua separado, apenas como exemplo visual.
 O comando geral `python -m src.scheduler` continua sendo responsabilidade da CLI do épico 1.
 
 ## Processos e configuração
@@ -73,6 +110,7 @@ Para verificar apenas algoritmos e serviços, sem abrir janelas:
 
 ```powershell
 python -m unittest discover -s tests -p test_round_robin.py -v
+python -m unittest discover -s tests -p test_engine.py -v
 python -m unittest discover -s tests -p test_gui_services.py -v
 ```
 

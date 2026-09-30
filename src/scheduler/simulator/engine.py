@@ -1,30 +1,91 @@
+"""Motor discreto: chegada -> seleção -> registro -> execução -> hook.
+
+Não conhece Round-Robin nem qualquer algoritmo concreto. A política escolhe
+quem executa; o motor avança o relógio e reúne resultados, segundo a segundo.
 """
-Motor de simulação por tick discreto — MotorSimulacao.
+from collections import defaultdict
 
-Responsabilidades:
-    - Executar o laço de simulação (tick a tick) para UM escalonador.
-    - Ser agnóstico ao algoritmo concreto — só conhece EscalonadorBase.
-    - Produzir um ResultadoSimulacao ao final.
+from src.scheduler.domain.configuration import Configuracao
+from src.scheduler.domain.process import Processo, StatusProcesso
+from src.scheduler.schedulers.base import EscalonadorBase
+from .diagram import DiagramaTempo
+from .result import ResultadoSimulacao
 
-Laço principal (a cada tick t = 0, 1, 2, …, até todos os processos finalizarem):
-    1. Processar chegadas: para cada processo com instante_criacao == t,
-       chamar escalonador.ao_chegar(processo, t) e marcar como PRONTO.
-    2. Selecionar próximo: em_execucao = escalonador.selecionar_proximo(t, em_execucao)
-    3. Executar 1 segundo: decrementar tempo_restante do processo em execução (se houver).
-    4. Registrar diagrama: informar DiagramaTempo o estado de cada processo neste tick.
-    5. Contabilizar troca de contexto: se o processo que ocupa a CPU mudou em relação
-       ao tick anterior (e não é a primeira CPU-ocupação da simulação), incrementar contador.
-    6. Hook: escalonador.ao_finalizar_tick(t, em_execucao)
-    7. Verificar finalização: se tempo_restante == 0, marcar FINALIZADO, registrar
-       instante de conclusão, chamar escalonador.ao_finalizar_processo().
-    8. Avançar t.
 
-Interface pública:
-    MotorSimulacao.executar(
-        processos: list[Processo],     # cópias frescas — nunca reutilizar entre algoritmos
-        escalonador: EscalonadorBase,
+class MotorSimulacao:
+    def executar(
+        self, processos: list[Processo], escalonador: EscalonadorBase,
         config: Configuracao,
-    ) -> ResultadoSimulacao
+    ) -> ResultadoSimulacao:
+        if not processos:
+            raise ValueError("Adicione pelo menos um processo.")
+        if len({p.id for p in processos}) != len(processos):
+            raise ValueError("Os IDs dos processos devem ser únicos.")
+        if config.quantum <= 0 or config.aging <= 0:
+            raise ValueError("Quantum e aging devem ser positivos.")
+        if any(p.tempo_restante != p.tempo_processamento or p.instante_inicio is not None
+               for p in processos):
+            raise ValueError("Cada execução precisa de processos novos.")
 
-Invariante: este módulo nunca importa nenhuma classe concreta de escalonador.
-"""
+        chegadas = defaultdict(list)
+        for p in processos:
+            chegadas[p.instante_criacao].append(p)
+        diagrama = DiagramaTempo([p.id for p in processos])
+        registros = []
+        atual = None
+        tempo = 0
+        concluidos = 0
+        trocas = 0
+
+        while concluidos < len(processos):
+            # Chegadas entram antes de reenfileirar quem esgotou seu quantum.
+            for p in chegadas.get(tempo, ()):
+                p.status = StatusProcesso.PRONTO
+                escalonador.ao_chegar(p, tempo)
+
+            anterior = atual
+            atual = escalonador.selecionar_proximo(tempo, anterior)
+            presentes = frozenset(p.id for p in processos
+                                 if p.instante_criacao <= tempo and p.tempo_restante > 0)
+            if atual is None and presentes:
+                raise RuntimeError("O escalonador deixou a CPU ociosa com processos prontos.")
+            if atual is not None and (not any(atual is p for p in processos)
+                                      or atual.id not in presentes):
+                raise RuntimeError("O escalonador escolheu um processo que não está pronto.")
+
+            if anterior is not None and anterior is not atual and anterior.tempo_restante > 0:
+                anterior.status = StatusProcesso.PRONTO
+            # Só transições diretas entre processos diferentes contam como troca.
+            if anterior is not None and atual is not None and anterior is not atual:
+                trocas += 1
+
+            pid = atual.id if atual is not None else None
+            registros.append((pid, presentes))
+            diagrama.registrar_tick(pid, presentes)
+
+            if atual is not None:
+                atual.status = StatusProcesso.EXECUTANDO
+                if atual.instante_inicio is None:
+                    atual.instante_inicio = tempo
+                atual.executar_um_tick()
+                if atual.tempo_restante == 0:
+                    atual.instante_termino = tempo + 1
+                    atual.status = StatusProcesso.FINALIZADO
+                    concluidos += 1
+
+            # Mesmo quem terminou neste tick deve fechar sua fatia no hook.
+            escalonador.ao_finalizar_tick(tempo, atual)
+            tempo += 1
+
+        vidas = [p.instante_termino - p.instante_criacao for p in processos]
+        esperas = tuple((p.id, vida - p.tempo_processamento)
+                        for p, vida in zip(processos, vidas))
+        return ResultadoSimulacao(
+            nome_algoritmo=getattr(escalonador, "nome", type(escalonador).__name__),
+            tt_medio=sum(vidas) / len(processos),
+            tw_medio=sum(espera for _, espera in esperas) / len(processos),
+            trocas_contexto=trocas,
+            diagrama=diagrama.renderizar(),
+            registros=tuple(registros),
+            esperas=esperas,
+        )

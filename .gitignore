@@ -44,3 +44,5 @@ Thumbs.db
 notes.md
 
 # Os testes fazem parte da entrega; não ignorar tests/.
+
+.venv-build/

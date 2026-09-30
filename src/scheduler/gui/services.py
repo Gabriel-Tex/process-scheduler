@@ -48,6 +48,7 @@ def adaptar_resultado(resultado: object, ids: tuple[str, ...]) -> ResultadoGUI:
         diagrama=resultado.diagrama,
         ids_processos=ids,
         registros=ticks,
+        esperas=tuple(getattr(resultado, "esperas", ())),
     )
 
 
@@ -102,4 +103,5 @@ class ServicoDemonstrativo:
         for tick in ticks:
             diagrama.registrar_tick(tick.executando, tick.presentes)
         return [ResultadoGUI("Exemplo ilustrativo • quantum 2", 9.75, 6.25, 7,
-                             diagrama.renderizar(), ids, ticks)]
+                             diagrama.renderizar(), ids, ticks,
+                             (("P1", 8), ("P2", 2), ("P3", 7), ("P4", 8)))]

@@ -9,6 +9,8 @@ from .factory import registrar
 
 
 class RoundRobin(EscalonadorBase):
+    nome = "Round-Robin"
+
     def __init__(self, configuracao: Configuracao, aleatorio: random.Random):
         if configuracao.quantum <= 0:
             raise ValueError("quantum deve ser > 0")

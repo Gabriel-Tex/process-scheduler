@@ -17,9 +17,11 @@
 
 ## Contrato para o épico 1
 
-O adaptador importa o motor somente quando necessário. O módulo existente pode
-permanecer vazio enquanto a GUI é desenvolvida. Depois de integrar o motor,
-reinicie a aplicação.
+O motor compartilhado agora está implementado para permitir a execução real dos
+processos cadastrados. Ele não contém condições específicas para Round-Robin:
+trabalha somente com a interface base, que os demais algoritmos também usarão.
+O adaptador mantém a importação adiada e a mensagem de indisponibilidade para
+compatibilidade com versões do projeto em que o motor ainda não existe.
 
 A forma esperada é uma classe sem argumentos de construção:
 
@@ -40,6 +42,7 @@ O resultado deve expor:
 | trocas_contexto | int |
 | diagrama | str, diagrama textual já renderizado |
 | registros | opcional: sequência de pares (executando, presentes) |
+| esperas | sequência de pares (ID, espera total em segundos), na ordem da entrada |
 
 Cada elemento de `registros` corresponde a um segundo, desde t=0, inclusive ócio.
 `executando` é o ID de um processo ou `None`; `presentes` é uma coleção dos IDs
@@ -72,9 +75,8 @@ O motor pode manter um histórico público ou oferecer uma cópia pública do di
 6. Avançar o relógio. Um processo encerrado pode ser passado à próxima seleção ou substituído por None.
 
 Os Round-Robin usam `tempo_restante` para reconhecer conclusão; não dependem de
-um novo hook. A interface base atual não tem `ao_finalizar_processo`: o comentário
-do motor que menciona esse método está desatualizado e não deve ser chamado
-sem uma alteração explícita do contrato pelo responsável do épico 1.
+um novo hook. A interface base atual não tem `ao_finalizar_processo`; o motor usa somente
+os três métodos existentes.
 
 ## Contrato para o épico 2
 
@@ -139,13 +141,48 @@ cancelamento e atualização da tela pelo serviço substituto.
 1. Abrir com `python -m src.scheduler.gui` e identificar os quatro painéis.
 2. Carregar o exemplo; selecionar uma linha, editar duração e salvar.
 3. Tentar uma duração inválida e mostrar que a entrada válida é preservada.
-4. Abrir **Ver demonstração** e explicar que o motor do colega ainda é uma dependência.
-5. Selecionar o resultado e mostrar reprodução, pausa, avanço e diagrama textual.
+4. Selecionar Round-Robin e clicar em **Executar simulação**.
+5. Selecionar o resultado e mostrar espera individual, reprodução, pausa, avanço,
+   **Ir ao fim** e troca de abas com **Ctrl+Tab**.
 6. Explicar a fila do RR simples e o contador de quantum.
 7. Explicar a prioridade dinâmica e o envelhecimento somente na fatia completa.
 8. Mostrar um teste de chegada na fronteira e outro de envelhecimento.
 9. Mostrar que a fábrica e o adaptador permitem integrar os demais algoritmos
    sem mudar os widgets.
 
-Após a entrega do motor, repetir o roteiro usando **Executar simulação** e
-comparar resultados reais de todos os algoritmos disponíveis.
+Quando os demais algoritmos forem registrados, repetir o roteiro para comparar
+suas execuções reais. O motor atual já utiliza o mesmo contrato.
+
+## Explicação simples do Round-Robin e da espera
+
+Imagine uma fila para usar a CPU. Quem está no início executa por no máximo
+um quantum. Se acabar seu trabalho, sai; se ainda faltar trabalho, volta ao fim
+da fila. O contador da fatia é zerado ao escolher o próximo processo.
+
+Com quantum 2, P1 chegando em 0 e durando 3 segundos, e P2 chegando em 1 e
+durando 1 segundo, a sequência é:
+
+| Intervalo | CPU |
+|---|---|
+| 0–1 | P1 |
+| 1–2 | P1 |
+| 2–3 | P2 |
+| 3–4 | P1 |
+
+P1 termina em 4: espera = 4 − 0 − 3 = 1 segundo.
+P2 termina em 3: espera = 3 − 1 − 1 = 1 segundo.
+A média de espera é 1 segundo. O motor reúne as métricas e as fornece à GUI.
+Só mudanças diretas entre processos diferentes contam como trocas de contexto;
+entrar ou sair de um intervalo ocioso não incrementa o contador.
+
+## Troca rápida de visualização
+
+O texto é preenchido somente ao selecionar um resultado novo. O Canvas mantém
+as células visíveis e atualiza apenas as que mudam com o avanço da reprodução.
+Redimensionamentos são agrupados em uma atualização pendente; quando a aba
+textual está aberta, o Canvas não redesenha. Ao voltar, ele mostra o instante
+atual. Pausado ou finalizado, mudar de aba reaproveita o desenho existente.
+
+O botão **Ir ao fim** mostra toda a execução sem aguardar a animação.
+Os totais de espera são sempre da execução completa; não são contadores parciais
+da reprodução. A execução real e a demonstração continuam explicitamente separadas.

@@ -12,6 +12,8 @@ from .factory import registrar
 
 
 class RoundRobinAging(EscalonadorBase):
+    nome = "Round-Robin + envelhecimento"
+
     def __init__(self, configuracao: Configuracao, aleatorio: random.Random):
         if configuracao.quantum <= 0 or configuracao.aging <= 0:
             raise ValueError("quantum e aging devem ser > 0")

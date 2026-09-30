@@ -15,15 +15,24 @@ class JanelaTests(unittest.TestCase):
         self.app.update()
 
     def tearDown(self):
+        self.app.update_idletasks()
         self.app.fechar()
 
-    def test_abre_sem_motor_e_demo_identificada(self):
-        self.assertIn("disabled", self.app.botao_executar.state())
+    def test_abre_com_motor_e_demo_identificada(self):
+        self.assertNotIn("disabled", self.app.botao_executar.state())
         self.app.demonstrar()
         self.app.update()
         self.assertIn("DEMONSTRAÇÃO", self.app.aviso.get())
         self.assertEqual(len(self.app.resultado.tabela.get_children()), 1)
         self.assertEqual(self.app.gantt.indice, 0)
+
+    def test_ausencia_motor_ainda_tem_fallback(self):
+        from src.scheduler.gui.services import ServicoReal
+        self.app.fechar()
+        with patch.object(ServicoReal, "_classe_motor", return_value=None):
+            self.app = AppGUI()
+        self.app.withdraw()
+        self.assertIn("disabled", self.app.botao_executar.state())
 
     def test_entrada_exemplo_edicao_remocao_ids(self):
         e = self.app.entrada
@@ -95,6 +104,80 @@ class JanelaTests(unittest.TestCase):
             cfg.importar()
             erro.assert_called_once()
         self.assertEqual((cfg.quantum.get(), cfg.aging.get()), ("2", "1"))
+
+    def test_alternar_abas_preserva_posicao_e_reutiliza_canvas(self):
+        self.app.deiconify()
+        self.app.demonstrar()
+        self.app.update()
+        g = self.app.gantt
+        g.avancar_tick()
+        self.app.update()
+        itens = g.canvas.find_all()
+        for _ in range(4):
+            g.abas.select(1)
+            self.app.update()
+            g.abas.select(0)
+            self.app.update()
+        self.assertEqual(g.indice, 1)
+        self.assertEqual(g.canvas.find_all(), itens)
+        g.finalizar()
+        self.app.update()
+        self.assertEqual(g.indice, 14)
+        self.assertIsNone(g._agendamento)
+        g.abas.select(1)
+        self.app.update()
+        g.abas.select(0)
+        self.app.update()
+        self.assertEqual(g.canvas.find_all(), itens)
+        self.assertEqual(g.indice, 14)
+
+    def test_canvas_oculto_nao_redesenha_e_retorna_no_tick_correto(self):
+        self.app.deiconify()
+        self.app.demonstrar()
+        self.app.update()
+        g = self.app.gantt
+        g.abas.select(1)
+        self.app.update()
+        itens = g.canvas.find_all()
+        g.avancar_tick()
+        self.app.update()
+        self.assertEqual(g.canvas.find_all(), itens)
+        self.assertEqual(g._pintado_ate, 0)
+        g.abas.select(0)
+        self.app.update()
+        self.assertEqual(g._pintado_ate, 1)
+
+    def test_selecao_duplicada_nao_reinicia_reproducao(self):
+        self.app.demonstrar()
+        self.app.update()
+        g = self.app.gantt
+        g.avancar_tick()
+        g.carregar(g.resultado)
+        self.assertEqual(g.indice, 1)
+
+    def test_executa_processos_da_tabela_e_mostra_espera_real(self):
+        self.app.entrada.carregar_texto("0 3 1\n1 1 1")
+        self.app.config.lista.selection_clear(0, "end")
+        indice = self.app.config.algoritmos.index("rr")
+        self.app.config.lista.selection_set(indice)
+        self.app.executar()
+        limite = self.app.after(3000, self.app.quit)
+        def verificar():
+            if not self.app._ocupado:
+                self.app.quit()
+            else:
+                self.app.after(10, verificar)
+        self.app.after(10, verificar)
+        self.app.mainloop()
+        self.app.after_cancel(limite)
+        self.app.update()
+        self.assertFalse(self.app._ocupado)
+        self.assertFalse(self.app._demo)
+        g = self.app.gantt
+        self.assertEqual(g.resultado.ids_processos, ("P1", "P2"))
+        self.assertEqual([t.executando for t in g.resultado.registros], ["P1", "P1", "P2", "P1"])
+        linhas = [g.esperas.item(i, "values") for i in g.esperas.get_children()]
+        self.assertEqual(linhas, [("P1", "1"), ("P2", "1")])
 
     def test_registro_real_simulado_atualiza_widgets(self):
         class Fake:
