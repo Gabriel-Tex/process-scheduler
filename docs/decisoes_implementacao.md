@@ -6,6 +6,7 @@
 * [`src/scheduler/schedulers/base.py`: Interface dos Escalonadores e Regra de Desempate](#srcschedulerschedulersbasepy-interface-dos-escalonadores-e-regra-de-desempate)
 * [`src/scheduler/schedulers/factory.py`: Fábrica de Escalonadores](#srcschedulerschedulersfactorypy-fábrica-de-escalonadores)
 * [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
+* [`src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração](#srcschedulerioconfig_readerpy-leitura-do-arquivo-de-configuração)
 
 ---
 
@@ -150,3 +151,34 @@ Linhas que contêm apenas espaços, tabs ou nenhum caractere são ignoradas sem 
 
 ### 8. Tratamento de Inteiros com Sinal
 A conversão via `int()` do Python aceita naturalmente sinais explícitos (ex.: `+5`, `-1`). Valores negativos que violem regras de domínio (ex.: `instante_criacao = -1`) são rejeitados pelo `Processo.__post_init__`, não pelo *parser*. Valores positivos com sinal explícito (`+5`) são aceites como equivalentes a `5`. Esta é a semântica nativa de `int()` e não foi restrita por não haver qualquer indicação no enunciado de que sinais explícitos devam ser proibidos.
+
+## `src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração
+
+Esta secção documenta as decisões relativas à transformação do ficheiro de configuração em texto plano (formato `chave:valor`) num objecto `Configuracao` do domínio. O módulo é responsável exclusivamente pelo *parsing*, pela validação estrutural e pela validação de valores — não lê processos, não executa simulação e não imprime resultados.
+
+### 1. Recepção do Arquivo por Parâmetro (`TextIO`)
+Tal como no leitor de entrada (história 1.3), a função `ler_configuracao` recebe o ficheiro já aberto como `TextIO`, em vez de receber um caminho e chamar `open()` internamente. A decisão de *onde* está o ficheiro (caminho padrão, argumento de linha de comando, etc.) pertence à camada de CLI. Para verificação manual, basta passar `io.StringIO("quantum:2\naging:1")`.
+
+### 2. Excepção Própria (`ConfiguracaoInvalidaError`)
+Foi definida uma subclasse de `ValueError` específica para erros de leitura/validação de configuração. Isto permite que a CLI trate erros de configuração de forma diferenciada de erros de entrada de processos (`EntradaInvalidaError`) ou de outros `ValueError` internos do sistema.
+
+### 3. Chaves Desconhecidas Tratadas como Erro
+Uma chave que não seja `quantum` nem `aging` levanta `ConfiguracaoInvalidaError` imediatamente, em vez de ser ignorada. A razão é pragmática: como o ficheiro é escrito à mão, uma chave desconhecida quase certamente indica um erro de digitação (ex.: `quantun:2`). Ignorá-la silenciosamente faria a simulação correr com valores padrão, produzindo resultados errados sem nenhum aviso — um tipo de falha particularmente difícil de diagnosticar.
+
+### 4. Chaves Repetidas Tratadas como Erro
+Se a mesma chave aparecer mais de uma vez no ficheiro (ex.: `quantum:2` seguido de `quantum:4`), o módulo levanta erro em vez de silenciosamente usar o último valor. Um ficheiro com chaves repetidas é ambíguo e, tal como com chaves desconhecidas, é preferível falhar explicitamente do que correr com uma configuração possivelmente incorrecta.
+
+### 5. Ambas as Chaves São Obrigatórias
+Ao final da leitura, o módulo verifica que tanto `quantum` quanto `aging` foram fornecidos. A ausência de qualquer uma delas levanta `ConfiguracaoInvalidaError` indicando qual chave está em falta. Embora `Configuracao` tenha valores padrão (`quantum=2`, `aging=1`), optou-se por exigir ambas no ficheiro para evitar erros silenciosos: se o utilizador criou um ficheiro de configuração, é razoável esperar que ele defina os dois parâmetros explicitamente.
+
+### 6. Validação de Valores Positivos no Leitor (Não no Domínio)
+O módulo valida que `quantum > 0` e `aging > 0` directamente, porque a dataclass `Configuracao` não possui `__post_init__` com validação (aceita qualquer inteiro). Esta decisão concentra a validação de limites no ponto de entrada dos dados (o *parser*), que é onde as mensagens de erro com número de linha são mais úteis. Se futuramente se adicionar validação a `Configuracao.__post_init__`, a duplicação pode ser removida deste módulo — por enquanto, não há risco de inconsistência.
+
+### 7. Separação com `str.split(":", maxsplit=1)`
+O uso de `maxsplit=1` garante que apenas a primeira ocorrência de `:` é usada como separador. Embora os valores esperados sejam inteiros (sem `:` no valor), esta precaução torna o *parser* robusto contra extensões futuras sem custo de complexidade.
+
+### 8. Normalização de Chaves para Minúsculas
+As chaves são convertidas para minúsculas antes da comparação (`chave.strip().lower()`), tornando a leitura *case-insensitive* — `Quantum:2`, `QUANTUM:2` e `quantum:2` são todos aceites. Esta decisão é pragmática: como o ficheiro é editado manualmente, é comum o utilizador variar a capitalização, e rejeitar `Quantum` por não ser exactamente `quantum` seria uma fonte desnecessária de frustração.
+
+### 9. Suporte a Comentários (`#`)
+Linhas iniciadas por `#` (após remoção de espaços iniciais) são tratadas como comentários e ignoradas silenciosamente. O PDF da atividade não menciona comentários no ficheiro de configuração, mas o ficheiro de exemplo do projecto (`config/config.txt`) já contém linhas de comentário. Esta funcionalidade foi adicionada como conveniência sem custo de complexidade, e está documentada aqui por não ser um requisito explícito do enunciado.
