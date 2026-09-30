@@ -216,3 +216,18 @@ Cada coluna de processo tem largura igual a `max(2, len(id))` — 2 é o mínimo
 
 ### 8. Zero Ticks Produz Apenas o Cabeçalho
 Chamar `renderizar()` sem ter registado nenhum tick devolve apenas a linha de cabeçalho (`tempo  P1  P2  …`), sem lançar erro. Isto é útil para cenários de teste e evita tratar um caso especial no motor ("se não houver processos, não renderize").
+
+## Épico 3: Tkinter, Round-Robin e integração
+
+A interface usa Tkinter + ttk e separa widgets, controlador e serviços. O modo
+demonstrativo é explícito e não executa entradas do usuário. O motor e as métricas
+continuam sob responsabilidade do épico 1.
+
+O RR simples usa deque. O RR com envelhecimento usa uma lista de prontos e
+envelhece somente os processos em espera ao fechar um quantum completo, sem
+preempção por prioridade no meio da fatia. A escolha restaura a prioridade estática;
+maior valor numérico significa maior prioridade.
+
+A GUI consome resultados por adaptador, com registros por tick opcionais e sem
+acessar atributos privados do diagrama. Consulte [o contrato e o roteiro](epico_3_interface.md)
+para a ordem dos hooks, a convenção de envelhecimento, os testes e as dependências.

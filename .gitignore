@@ -43,4 +43,4 @@ Thumbs.db
 
 notes.md
 
-tests/
+# Os testes fazem parte da entrega; não ignorar tests/.
