@@ -95,13 +95,14 @@ Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + 
 ### 1.6 Cálculo de métricas e resultado consolidado
 * **História:** Como usuário do simulador, quero ver tempo médio de execução, tempo médio de espera e número de trocas de contexto por algoritmo, para comparar os algoritmos entre si.
 * **Critérios de Aceitação:**
-  * `tt` e `tw` calculados como média sobre todos os processos.
-  * Trocas de contexto contam apenas transições entre processos diferentes (sair do ócio para o primeiro processo não conta).
+  * `tt` e `tw` calculados como média sobre todos os processos (validados apenas para finalizados).
+  * Trocas de contexto contam apenas transições consecutivas diretas entre processos diferentes.
 * **Passos:**
-  1. Ao finalizar cada processo, calcular seu turnaround (`término − criação`) e espera (`turnaround − duração`).
-  2. Agregar médias.
-  3. Contar trocas de contexto durante a simulação (não recalcular depois — no próprio motor, no momento em que ele troca quem executa).
-  4. Montar `ResultadoSimulacao` (nome do algoritmo, `tt`, `tw`, trocas, diagrama).
+  1. Implementar `calcular_tempos_medios(processos)` para derivar o turnaround (`término − criação`) e espera (`turnaround − duração`) de cada finalizado e retornar as médias.
+  2. Implementar `contar_trocas_contexto(execucoes)` validando transições diretas.
+  3. Montar a `ResultadoSimulacao` imutável (`@dataclass(frozen=True)`) com o nome do algoritmo, médias, trocas e diagrama.
+  4. Implementar `construir_resultado(...)` para facilitar a instanciação da dataclass.
+* **Arquivos:** `src/scheduler/simulator/result.py`
 
 ### 1.7 Motor de simulação
 * **História:** Como desenvolvedor, quero um motor único que receba uma lista de processos e um `EscalonadorBase` e devolva um `ResultadoSimulacao`, para reaproveitar a mesma lógica em todos os 7 algoritmos.

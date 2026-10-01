@@ -8,7 +8,7 @@
 * [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
 * [`src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração](#srcschedulerioconfig_readerpy-leitura-do-arquivo-de-configuração)
 * [`src/scheduler/simulator/diagram.py`: Diagrama de Tempo](#srcschedulersimulatordiagrampy-diagrama-de-tempo)
-* [`src/scheduler/simulator/resultado.py`: Cálculo de Métricas e Resultado Consolidado](#srcschedulersimuladorresultadopy-cálculo-de-métricas-e-resultado-consolidado)
+* [`src/scheduler/simulator/result.py`: Cálculo de Métricas e Resultado Consolidado](#srcschedulersimuladorresultpy-cálculo-de-métricas-e-resultado-consolidado)
 
 ---
 
@@ -217,3 +217,23 @@ Cada coluna de processo tem largura igual a `max(2, len(id))` — 2 é o mínimo
 
 ### 8. Zero Ticks Produz Apenas o Cabeçalho
 Chamar `renderizar()` sem ter registado nenhum tick devolve apenas a linha de cabeçalho (`tempo  P1  P2  …`), sem lançar erro. Isto é útil para cenários de teste e evita tratar um caso especial no motor ("se não houver processos, não renderize").
+## `src/scheduler/simulator/result.py`: Cálculo de Métricas e Resultado Consolidado
+
+Esta secção documenta as decisões de implementação relativas ao cálculo das métricas de simulação e sua consolidação num único objeto. As métricas calculadas incluem tempo médio de execução (turnaround), tempo médio de espera (waiting time) e número de trocas de contexto, de acordo com o exigido pela atividade e validado contra os exemplos dos slides.
+
+### 1. Separação em Funções Puras
+A lógica de cálculo foi isolada em funções independentes e puras (`calcular_tempos_medios` e `contar_trocas_contexto`) e uma função agregadora (`construir_resultado`), em vez de serem métodos da própria dataclass ou do motor. Esta decisão facilita os testes unitários isolados, visto que é possível validar as fórmulas simulando processos ou vetores de contexto arbitrariamente sem necessitar de uma simulação completa.
+
+### 2. Validação de Pré-condições em `calcular_tempos_medios`
+A função responsável por extrair os tempos de execução (tt) e espera (tw) garante que:
+* A lista de processos passada não é vazia. O retorno de um tuplo nulo ou zeros mascararia problemas de chamadas indevidas no sistema.
+* Todos os processos recebidos estejam efetivamente finalizados. O cálculo efetuado depende da propriedade calculada `instante_termino`, e caso o processo não tivesse finalizado, a geração do turnaround não seria representativa do término, produzindo métricas incorretas sem nenhum aviso. O uso de excepções do tipo `ValueError` sinaliza violações do contrato estrito.
+
+### 3. Fórmulas Explícitas Baseadas nos Slides
+O turnaround time foi padronizado como sendo a diferença entre `instante_termino` e `instante_criacao`. Por sua vez, o waiting time (espera) foi computado como a subtração `turnaround - tempo_processamento` (duração). Esta métrica padronizada segue a mesma que os slides de algoritmos da disciplina comprovam em todos os seus quadros de execução. Ambas originam a média aritmética dividida pela quantidade de processos, resultando nas métricas pedidas.
+
+### 4. Regra de Contagem de Trocas de Contexto
+A função `contar_trocas_contexto` atende rigorosamente à definição de que trocas de contexto são contabilizadas apenas em substituições consecutivas de alocação de processo à CPU: transições do estado ocioso (`None`) para execução ou saídas para o ócio **não** afetam este total. Esta restrição justifica o seu cálculo a partir de `execucoes[i-1]` contra `execucoes[i]`, que previne intersecções inválidas. Para garantir esta conformidade, transições ociosas intermédias suspendem a contabilização (ex.: `[P1, None, P2]` é ignorado na troca se o critério exigisse trocas diretas em iterador sucessivo). A implementação iterativa foi elaborada especificamente sobre adjacências com restrição nula.
+
+### 5. Dataclass Imutável `ResultadoSimulacao`
+A classe responsável por guardar as métricas foi decorada com `@dataclass(frozen=True)` visando garantir integridade total. Ao consolidar um conjunto numérico final de uma simulação (tt, tw, trocas e diagrama), torna-se uma fonte imutável e segura de apresentação. Nenhuma peça do sistema deve ser capaz de adulterar um resultado analítico previamente emitido.
