@@ -279,3 +279,28 @@ O Canvas do Tkinter foi desenhado para reaproveitar as células geradas. Em vez 
 ### 3. Convenções dos Round-Robin
 - **Simples (FIFO)**: Usa uma estrutura `deque`. O encerramento natural de processo remove o sujeito do ciclo; ao esgotar quantum incompleto, volta ao fim e o motor despacha entradas no instante *t* previamente antes da inserção recuada do exausto.
 - **Envelhecimento**: O envelhecimento (incremento da prioridade dinâmica) ocorre a cada fronteira de quantum. Uma fronteira é caracterizada por: quantum esgotado, término antecipado do processo, ou CPU ociosa mas com processos prontos. Nessas fronteiras, o processo escolhido restaura a sua prioridade, enquanto todos os restantes que aguardavam sofrem um incremento de aging (conforme D-04). Processos que chegam no decorrer de um quantum não sofrem e não provocam preempção, sendo apenas envelhecidos na fronteira subsequente.
+
+## Motor de Simulação e Saída (Histórias 1.7 e 1.8)
+
+### Responsabilidades
+- **Motor (`simular`)**: Orquestra a passagem do tempo de forma discreta (tick a tick). Centraliza as chegadas, presenças e chamadas ao escalonador. **Nunca calcula métricas** nem decide políticas (inversão de dependência via `EscalonadorBase`).
+- **Escritor (`output_writer.py`)**: Apenas formata o `ResultadoSimulacao` numa string de texto legível (bloco e tabela comparativa) para apresentação em texto pleno. Não escreve diretamente em `sys.stdout` no seu núcleo, mas recebe o fluxo `TextIO` via parâmetro `escrever_resultados()`.
+
+### Ordem dos Eventos por Tick
+No intervalo `[t, t+1)`:
+1. **Chegadas**: Processos com `instante_criacao == t` assumem status `PRONTO` e notificam o escalonador (`ao_chegar`).
+2. **Presentes**: Apuração dos processos já criados e não finalizados.
+3. **Seleção**: Chamada a `selecionar_proximo` com aplicação de validações *fail-fast* (e.g. rejeitar instâncias forasteiras ou retornos `None` com processos prontos).
+4. **Execução**: Altera-se o processo preemptado (se houver) para `PRONTO`, enquanto o eleito muda para `EXECUTANDO` e tem `tempo_restante` reduzido.
+5. **Término**: Se `tempo_restante == 0`, finaliza-se em `t + 1`.
+6. **Hook**: Notifica-se o algoritmo (`ao_finalizar_tick`).
+7. **Registro**: Salva-se id do executor e presentes para diagrama e cálculos a posteriori.
+
+### Por que o motor trabalha em cópias?
+O motor atua com `copy.deepcopy` da lista submetida de forma a respeitar a imutabilidade das instâncias originais da entrada. Isto garante que múltiplos algoritmos possam ser executados de forma determinística com os mesmos objetos, sem os "poluir" com status ou decrementar os seus tempos restantes simultaneamente.
+
+### Convenções Adotadas
+- **Término**: Um processo executado durante o tick `t` é considerado finalizado no instante `t + 1`.
+- **Presença**: Um processo conta como "presente" no diagrama no instante em que é criado, ou no qual está aguardando, incluindo o exato tick em que irá terminar as suas instruções.
+- **Trocas de contexto**: Contam-se transições apenas quando ocorrem dois executáveis consecutivos e *diferentes*. Ociosidade não conta.
+- **Formatação numérica**: Padronizada com vírgula e 2 casas decimais contendo pelo menos 1 (ex. `8,0` ou `9,75`), facilitando a legibilidade tal como expresso nos guiões da disciplina.

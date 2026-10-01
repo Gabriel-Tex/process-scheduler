@@ -1,63 +1,317 @@
-# Simulador de Escalonamento de Processos
+# Process Scheduler
 
-Este projeto é um simulador discreto de algoritmos de escalonamento de processos em Sistemas Operativos, desenvolvido em Python. O simulador avança o relógio de forma unitária (tick-a-tick) e recolhe métricas e relatórios gráficos de execução.
+Process Scheduler é um simulador de escalonamento de processos em Python, pensado para estudar e comparar algoritmos de escalonamento em Sistemas Operacionais. O objetivo principal é modelar a execução de processos em um ambiente discreto, avançando tick a tick, medindo desempenho e permitindo a comparação entre políticas como FCFS, SJF, SRTF, prioridade e Round Robin.
 
-Atualmente, dispõe de uma Interface Gráfica interativa construída com Tkinter, onde é possível visualizar a simulação passo-a-passo através de um diagrama de Gantt animado.
+Este projeto foi desenvolvido como estudo acadêmico e como exercício de arquitetura de software: separação por camadas, domínio, simulador, escalonadores e interface de entrada/saída. Ele ainda está em desenvolvimento, e o README descreve tanto o estado atual quanto o que já foi estruturado para a próxima etapa de implementação.
 
-## 🚀 Como Executar
+## Status do projeto
 
-**Requisitos:**
-- Python 3.10 ou superior.
-- Biblioteca padrão de Python (com suporte a `tkinter` para a GUI).
-- Sem dependências externas.
+O projeto está em fase de desenvolvimento ativo e não deve ser tratado como versão final. A estrutura principal já foi organizada em módulos bem definidos, incluindo:
 
-Para executar a Interface Gráfica, corra a partir da raiz do projeto:
-```bash
-python -m src.scheduler.gui
+- domínio de processos e configuração;
+- fábrica de escalonadores;
+- motor de simulação discreta;
+- visualização em diagrama de tempo;
+- leitura de entrada e configuração;
+- documentação técnica e decisões de implementação.
+
+Algumas partes da CLI e de certos algoritmos ainda estão em planejamento ou parcialmente implementadas, e a intenção deste README é documentar a arquitetura e o caminho de evolução do projeto com clareza.
+
+## Objetivo
+
+O simulador permite:
+
+- representar processos com instantes de criação, duração, prioridade e estado;
+- executar algoritmos de escalonamento em um ambiente discreto;
+- comparar métricas como tempo médio de turnaround e espera;
+- contabilizar trocas de contexto;
+- gerar diagramas de execução para visualização da ordem de ocupação do processador;
+- servir como base para estudos, exercícios e extensão futura para interface gráfica ou linha de comando.
+
+## Requisitos
+
+- Python 3.10+
+- Biblioteca padrão do Python
+- (Opcional, para GUI) biblioteca `tkinter`, normalmente disponível em instalações padrão do Python para Linux/macOS/Windows
+
+Não há dependências externas obrigatórias nesse momento.
+
+## Estrutura do projeto
+
+```text
+process-scheduler/
+├── README.md
+├── config/
+│   └── config.txt
+├── docs/
+│   └── decisoes_implementacao.md
+├── examples/
+├── src/
+│   └── scheduler/
+│       ├── __init__.py
+│       ├── __main__.py
+│       ├── cli/
+│       ├── domain/
+│       ├── gui/
+│       ├── io/
+│       ├── schedulers/
+│       └── simulator/
+├── tests/
+├── iniciar_interface.py
+├── user-stories.md
+├── SimuladorEscalonamento.pyz
+└── requirements.txt
 ```
 
-Para executar os testes automatizados da suíte:
+## Visão geral da arquitetura
+
+O projeto foi pensado em camadas para separar responsabilidade e reduzir acoplamento.
+
+### 1. Camada de domínio
+
+Diretório: `src/scheduler/domain/`
+
+Aqui ficam as entidades centrais:
+
+- `Processo`: modela uma tarefa com id, instante de criação, duração, prioridade, tempo restante, status e timestamps de início/fim.
+- `StatusProcesso`: enumeração com os estados do ciclo de vida da tarefa.
+- `Configuracao`: guarda parâmetros globais da simulação, principalmente quantum e aging.
+
+Essa camada é o coração do sistema, e foi construída para ser independente das regras de escalonamento e da interface do usuário.
+
+### 2. Camada de escalonadores
+
+Diretório: `src/scheduler/schedulers/`
+
+Aqui ficam as políticas de escalonamento, cada uma respeitando uma interface base comum. A ideia é que o motor de simulação não conheça algoritmos concretos, apenas a abstração de escalonamento.
+
+Algoritmos previstos/estruturados:
+
+- FCFS
+- SJF
+- SRTF
+- Prioridade cooperativa
+- Prioridade preemptiva
+- Round Robin
+- Round Robin com prioridade e envelhecimento
+
+A fábrica `factory.py` centraliza o registro e a criação de algoritmos por nome.
+
+### 3. Motor de simulação
+
+Diretório: `src/scheduler/simulator/`
+
+O motor é responsável pelo loop principal da simulação:
+
+1. processa chegadas;
+2. consulta o escalonador qual processo deve executar;
+3. executa um tick;
+4. atualiza o estado do sistema;
+5. coleta dados para o diagrama e para as métricas.
+
+Ele é independente do algoritmo concreto aplicado, o que torna a simulação mais reutilizável e testável.
+
+### 4. Entrada e saída
+
+Diretório: `src/scheduler/io/`
+
+O projeto separa a leitura de entrada e configuração da lógica de simulação em módulos específicos:
+
+- leitura de processos via entrada padrão;
+- leitura de configurações via arquivo;
+- escrita de resultados em formato textual para terminal;
+- geração de representações por algoritmo.
+
+### 5. GUI e CLI
+
+Diretórios:
+
+- `src/scheduler/gui/`
+- `src/scheduler/cli/`
+
+A intenção é que a interface gráfica e a linha de comando compartilhem o mesmo motor de simulação. Assim, tanto a CLI quanto a GUI usam o mesmo núcleo, evitando duplicação de lógica de negócio.
+
+## Como rodar o projeto
+
+### Ambiente local
+
+A partir da raiz do projeto, é possível validar a estrutura do pacote com:
+
 ```bash
-python -m unittest discover -s tests -p "test_*.py"
+PYTHONPATH=src python -m compileall src
 ```
 
-Opcionalmente, se tiver o pacote gerado (`SimuladorEscalonamento.pyz`), pode executar:
+Esse comando foi usado como validação de integridade do projeto e confirma que o pacote compila corretamente.
+
+### Execução da interface gráfica
+
+O projeto inclui um arquivo de inicialização para GUI:
+
 ```bash
-python SimuladorEscalonamento.pyz
+python iniciar_interface.py
 ```
 
-## 🏗 Arquitetura do Projeto
+Esse é o ponto de entrada previsto para a execução da interface visual, conforme o projeto foi organizado.
 
-O projeto segue princípios rigorosos de desacoplamento, separação de responsabilidades (SOLID) e funções puras:
+### Execução da CLI
 
-1. **Domínio (`src/scheduler/domain/`)**: Contém as entidades centrais `Processo`, `StatusProcesso` e `Configuracao`. As classes usam `@dataclass` separando campos estáticos (entrada) de variáveis dinâmicas de controlo (tempo restante, prioridade, término, etc). Independe de qualquer outro módulo.
-2. **Escalonadores (`src/scheduler/schedulers/`)**: Políticas que implementam a interface `EscalonadorBase` (métodos de *hook* `ao_chegar`, `selecionar_proximo`, `ao_finalizar_tick`). Uma fábrica (`factory.py`) cataloga os algoritmos sem instanciar conhecimento prévio.
-3. **Motor Discreto (`src/scheduler/simulator/engine.py`)**: Controla a passagem do tempo. Desconhece a lógica concreta dos escalonadores. Processa as chegadas, gere a preempção baseada nas transições de processo, constrói os relatórios e regista métricas tick-a-tick.
-4. **Cálculo de Métricas (`src/scheduler/simulator/result.py`)**: Calcula tempos de turnaround (`tt`), espera (`tw`), contagem de trocas de contexto e aglomera a visualização via funções puras.
-5. **Apresentação Gráfica (`src/scheduler/gui/`)**: Separação em serviços, modelo e controladores. `ServicoReal` atua como ponte com a simulação do motor numa thread isolada, despachando os eventos para renderização de uma matriz Gantt sem corromper ou invadir objetos de domínio da simulação.
+A interface de linha de comando orquestra a leitura, execução e formatação dos resultados para os algoritmos. O fluxo principal é:
 
-## 📚 Teoria e Convenções Adotadas
+```bash
+PYTHONPATH=src python -m scheduler --config config/config.txt < examples/exemplo_pdf.txt
+```
 
-Como alguns aspetos na literatura podem ser ambíguos, estas são as interpretações teóricas implementadas de modo rigoroso:
+Também é possível especificar a execução de apenas um algoritmo e fixar a semente aleatória para o desempate:
 
-- **Trocas de Contexto**: Uma troca é contabilizada **apenas** em transições consecutivas diretas entre dois processos *diferentes*. Sair do estado ocioso para executar ou deixar um processo para ficar em repouso não conta como troca.
-- **Espera e Turnaround**: 
-  - `Turnaround` (Tempo de vida) = `Término - Instante de Criação`.
-  - `Espera (tw)` = `Turnaround - Duração Original (Tempo de processamento)`.
-- **Preempção**: Interromper o processo caso chegue um novo em estado PRONTO com prioridade maior ou num quantum que expire.
-- **Round-Robin com Prioridade e Envelhecimento**: Aumentar a prioridade (*aging*) das tarefas em espera ocorre a cada **fronteira de quantum** (quantum esgotado, término antecipado de processo ou CPU ociosa com tarefas prontas). Para resolução de empates, aplicam-se por ordem os critérios: a) Processo em execução atual; b) Menor tempo restante; c) Sorteio aleatório reproduzível. Processos que chegam a meio do quantum não interrompem a execução.
-- **Tratamento Fila FIFO**: No RR clássico, as chegadas de novos processos no instante `t` entram na fila antes do re-enfileiramento do processo que viu o seu quantum terminar no instante `t`.
+```bash
+PYTHONPATH=src python -m scheduler --algoritmo rr --semente 7 < examples/dataset_slides.txt
+```
 
-> Mais detalhes de design interno estão disponíveis em `docs/decisoes_implementacao.md`.
+## Entrada de dados
 
-## 🚧 O Que Falta e Próximos Passos (Backlog)
+O simulador trabalha com um formato simples de processo:
 
-Atualmente, o **Épico 1** (Núcleo) e o **Épico 3** (GUI e Round-Robin) encontram-se em avançado estado de fusão. Contudo, faltam os seguintes elementos (a cargo do Épico 2 e das pendências de orquestração do Épico 1):
+```text
+instante_criacao duracao prioridade
+```
 
-1. **Restantes Algoritmos do Épico 2**: Implementar as restantes estratégias concretas de `EscalonadorBase`: 
-   - `SJF` (Shortest Job First)
-   - `SRTF` (Shortest Remaining Time First)
-   - `Prioridade Cooperativa`
-   - `Prioridade Preemptiva`
-2. **Saída Formatada Padrão (stdout)**: Implementar efetivamente o modo texto formatado no ecrã (atualmente delineado em `src/scheduler/io/output_writer.py`) que imprima a tabela comparativa.
-3. **CLI Orquestradora completa**: O `src/scheduler/cli/app_cli.py` está desenhado, mas precisa ser invocado e preenchido para suportar uma simulação puramente de linha de comando usando `--config` e ler o stdin via os *parsers* construídos na História 1.3 e 1.4 (`io/input_reader.py` e `io/config_reader.py`).
+Exemplo:
+
+```text
+0 5 2
+1 3 1
+2 4 3
+```
+
+A interpretação é:
+
+- instante de criação: quando o processo entra no sistema;
+- duração: tempo de processamento necessário;
+- prioridade: valor usado por algoritmos prioritários.
+
+A configuração do sistema pode ser lida de um arquivo como:
+
+```text
+quantum:2
+aging:1
+```
+
+## Teoria dos escalonadores
+
+Este projeto é um estudo prático de algoritmos clássicos de escalonamento.
+
+### FCFS
+
+First-Come, First-Served. Os processos são executados na ordem de chegada. É simples e previsível, mas pode gerar longos tempos de espera quando há processos longos chegando primeiro.
+
+### SJF
+
+Shortest Job First. Seleciona o processo com menor tempo de processamento. Reduz o tempo médio de espera, mas exige conhecimento do tempo de execução do processo.
+
+### SRTF
+
+Shortest Remaining Time First. Variante preemptiva do SJF. Se um processo com menor tempo restante chega, ele pode interromper a execução atual.
+
+### Prioridade
+
+A prioridade pode ser cooperativa ou preemptiva. Em geral, processos com maior prioridade são atendidos primeiro, mas podem causar starvation em ambiente sem compensação.
+
+### Round Robin
+
+Round Robin usa fatia de tempo (quantum). Cada processo executa por um intervalo fixo e, se não terminar, retorna para a fila. É útil para justiça de uso do processador.
+
+### Round Robin com envelhecimento
+
+Essa variação adiciona aumento de prioridade dinâmica para processos que aguardam por muito tempo, mitigando starvation e equilibrando justiça e prioridade.
+
+## Métricas calculadas
+
+A comparação entre algoritmos costuma ser feita usando métricas como:
+
+- turnaround: tempo total do processo desde sua criação até sua conclusão;
+- waiting time: tempo que o processo ficou pronto aguardando a CPU;
+- trocas de contexto: quantas vezes a CPU mudou de processo;
+- diagrama de execução: representação visual do uso do processador ao longo do tempo.
+
+A fórmula básica adotada é:
+
+- turnaround = instante de término - instante de criação
+- waiting time = turnaround - tempo de processamento
+
+A ideia é comparar o comportamento dos algoritmos sob o mesmo conjunto de processos.
+
+## Diagrama de execução
+
+O projeto também usa uma representação visual do uso do processador ao longo dos ticks. O objetivo é mostrar, em uma grade temporal, quais processos estavam executando, quais estavam prontos e quais ainda não haviam chegado.
+
+Esse recurso é especialmente útil para:
+
+- comparar políticas de escalonamento;
+- entender troca de contexto;
+- analisar quando a CPU ficou ociosa;
+- validar se o algoritmo atende às regras esperadas.
+
+## Estado atual e roadmap
+
+O projeto já possui a base estrutural bem definida, mas ainda está incompleto em relação ao estado de produto final. Os pontos principais do roadmap são:
+
+### Pronto ou em andamento
+
+- estrutura modular do projeto;
+- domínio de processos e configuração;
+- motor de simulação discreto;
+- fábrica de escalonadores;
+- diagrama de tempo;
+- documentação de decisões de implementação;
+- organização dos testes e artefatos de suporte.
+
+### Ainda pendentes ou parcialmente implementados
+
+- CLI completa e interativa;
+- execução de todos os algoritmos concretos;
+- saída formatada em terminal;
+- integração final entre leitura de dados, execução e apresentação;
+- refinamento de GUI e visualização;
+- ajustes finais de usabilidade e validação de cenários reais.
+
+## Boas práticas adotadas
+
+O projeto foi organizado seguindo algumas boas práticas de engenharia de software:
+
+- separação clara por camadas;
+- desacoplamento entre domínio, escalonamento e interface;
+- regras centralizadas para desempate e parametrização;
+- objetos de configuração em dataclass;
+- estrutura modular para facilitar manutenção e extensão;
+- foco em comparabilidade entre algoritmos.
+
+## Desafios e observações
+
+Um projeto de escalonamento de processos exige atenção especial a detalhes como:
+
+- checagem de processos que chegam em momentos diferentes;
+- controle do estado do processo em cada tick;
+- contagem correta de trocas de contexto;
+- tratamento de quantum e envelhecimento;
+- preempção em cenários de empate e prioridade;
+- geração de resultados reproduzíveis e comparáveis.
+
+Esses detalhes são o que tornam o tema relevante em Sistemas Operacionais e o que motivam a arquitetura do projeto.
+
+## Contribuição
+
+Este projeto é um estudo de arquitetura e algoritmo e pode ser expandido. Sugestões de melhorias incluem:
+
+- completar a CLI;
+- finalizar os algoritmos restantes;
+- implementar testes automáticos mais completos;
+- comparar resultados com cenários de referência;
+- melhorar apresentação de métricas e gráficos.
+
+## Licença
+
+O projeto não define uma licença formal neste momento. Em desenvolvimento, ele é usado como base acadêmica e de estudo. Caso o projeto passe a ser compartilhado publicamente em outro contexto, a licença deve ser explicitada antes da distribuição.
+
+## Observação final
+
+Este README foi escrito como documentação do estado atual do projeto e como guia para manutenção e evolução futura. A arquitetura já foi organizada de forma sólida, mas o sistema ainda não deve ser considerado concluído: o foco de desenvolvimento contínuo está em finalizar a integração entre módulos e validar os algoritmos em cenários reais de simulação.

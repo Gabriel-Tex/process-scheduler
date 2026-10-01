@@ -1,12 +1,2 @@
-# Arquivo de configuração do simulador.
-# Uma chave por linha, formato:  chave:valor
-# Espaços em branco extras são ignorados.
-#
-# Parâmetros disponíveis:
-#   quantum  — duração da fatia de tempo para Round-Robin (inteiro > 0)
-#   aging    — incremento de prioridade por tick de espera no RR+envelhecimento (inteiro >= 0)
-#
-# Só afeta algoritmos rr e rr_prio_aging; mantido para todos os modos.
-
 quantum:2
 aging:1

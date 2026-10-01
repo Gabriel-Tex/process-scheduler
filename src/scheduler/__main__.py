@@ -1,10 +1,5 @@
-"""
-PENDENTE: este arquivo contém apenas planejamento, não implementação.
+from src.scheduler.cli.app import main
+import sys
 
-Ponto de entrada do simulador.
-
-Uso:
-    python -m escalonador [opções]
-
-Delega toda a orquestração para cli/app_cli.py via argparse.
-"""
+if __name__ == "__main__":
+    sys.exit(main())
