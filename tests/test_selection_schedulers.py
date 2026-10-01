@@ -6,6 +6,7 @@ from src.scheduler.schedulers.factory import criar, listar_algoritmos
 from src.scheduler.schedulers.fcfs import FCFS
 from src.scheduler.schedulers.priority import PrioridadeCooperativa
 from src.scheduler.schedulers.sjf import SJF
+from src.scheduler.schedulers.srtf import SRTF
 
 
 def test_fcfs_escolhe_menor_instante_de_criacao() -> None:
@@ -124,3 +125,48 @@ def test_prioc_registrado_na_fabrica() -> None:
     assert isinstance(
         criar("prioc", Configuracao(), random.Random(1)), PrioridadeCooperativa
     )
+
+
+def test_srtf_preempta_quando_chega_menor_tempo_restante() -> None:
+    processo_atual = Processo("P1", 0, 8, 1)
+    processo_curto = Processo("P2", 1, 2, 1)
+    escalonador = SRTF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_curto, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_curto
+
+
+def test_srtf_mantem_processo_atual_diante_de_maior_tempo_restante() -> None:
+    processo_atual = Processo("P1", 0, 3, 1)
+    processo_longo = Processo("P2", 1, 6, 1)
+    escalonador = SRTF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_longo, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_srtf_empate_mantem_mesma_instancia_em_execucao() -> None:
+    processo_atual = Processo("P1", 0, 4, 1)
+    processo_recente = Processo("P2", 1, 4, 1)
+    escalonador = SRTF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_recente, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_srtf_usa_tempo_restante_atual() -> None:
+    processo_quase_finalizado = Processo("P1", 0, 9, 1)
+    processo_quase_finalizado.tempo_restante = 2
+    processo_recente = Processo("P2", 1, 3, 1)
+    escalonador = SRTF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_recente, 1)
+
+    assert (
+        escalonador.selecionar_proximo(1, processo_quase_finalizado)
+        is processo_quase_finalizado
+    )
+
+
+def test_srtf_registrado_na_fabrica() -> None:
+    assert "srtf" in listar_algoritmos()
+    assert isinstance(criar("srtf", Configuracao(), random.Random(1)), SRTF)
