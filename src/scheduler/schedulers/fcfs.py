@@ -1,18 +1,32 @@
-"""
-PENDENTE: este arquivo contém apenas planejamento, não implementação.
+"""Escalonador FCFS (First-Come, First-Served)."""
 
-Escalonador FCFS — First-Come, First-Served.
+from __future__ import annotations
 
-Algoritmo: não-preemptivo.
-Chave de seleção: menor instante_criacao (ordem de chegada).
-Desempate: regra centralizada em escalonadores/base.py.
+import random
 
-Herda de EscalonadorSelecao (base parametrizável definida em base.py), que
-implementa a lógica de "manter fila de prontos + selecionar por chave + flag
-de preempção". FCFS apenas injeta:
-    - chave(p) = p.instante_criacao
-    - preemptivo = False
+from src.scheduler.domain.configuration import Configuracao
+from src.scheduler.domain.process import Processo
+from src.scheduler.schedulers.factory import registrar
+from src.scheduler.schedulers.key_based import EscalonadorPorChave
 
-Validação manual esperada (dataset da Seção 3 do contexto):
-    tt médio = 8,0 | tw médio = 5,2 | trocas de contexto = 4
-"""
+
+def _chave_instante_criacao(processo: Processo) -> int:
+    return processo.instante_criacao
+
+
+class FCFS(EscalonadorPorChave):
+    """Escalona processos pela ordem de chegada, sem preempção."""
+
+    def __init__(
+        self, configuracao: Configuracao, aleatorio: random.Random | None = None
+    ) -> None:
+        """Configura a seleção FCFS sem preempção."""
+        super().__init__(
+            configuracao,
+            _chave_instante_criacao,
+            preemptivo=False,
+            aleatorio=aleatorio,
+        )
+
+
+registrar("fcfs", FCFS)

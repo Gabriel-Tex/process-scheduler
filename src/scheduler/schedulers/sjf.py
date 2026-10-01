@@ -1,17 +1,32 @@
-"""
-PENDENTE: este arquivo contém apenas planejamento, não implementação.
+"""Escalonador SJF (Shortest Job First)."""
 
-Escalonador SJF — Shortest Job First.
+from __future__ import annotations
 
-Algoritmo: não-preemptivo.
-Chave de seleção: menor duracao (tempo total, não o restante — decisão tomada
-    no momento em que o processo entra na CPU e não muda até ele terminar).
-Desempate: regra centralizada em escalonadores/base.py.
+import random
 
-Herda de EscalonadorSelecao:
-    - chave(p) = p.duracao
-    - preemptivo = False
+from src.scheduler.domain.configuration import Configuracao
+from src.scheduler.domain.process import Processo
+from src.scheduler.schedulers.factory import registrar
+from src.scheduler.schedulers.key_based import EscalonadorPorChave
 
-Validação manual esperada (dataset da Seção 3 do contexto):
-    tt médio = 5,8 | tw médio = 3,0 | trocas de contexto = 4
-"""
+
+def _chave_duracao_original(processo: Processo) -> int:
+    return processo.tempo_processamento
+
+
+class SJF(EscalonadorPorChave):
+    """Escalona sem preempção pelo menor tempo de processamento original."""
+
+    def __init__(
+        self, configuracao: Configuracao, aleatorio: random.Random | None = None
+    ) -> None:
+        """Configura a seleção SJF sem preempção."""
+        super().__init__(
+            configuracao,
+            _chave_duracao_original,
+            preemptivo=False,
+            aleatorio=aleatorio,
+        )
+
+
+registrar("sjf", SJF)
