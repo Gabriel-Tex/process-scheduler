@@ -47,7 +47,6 @@ class EscalonadorPorChave(EscalonadorBase):
         if not candidatos:
             return None
 
-        # Prioridades maiores usam chave negativa, pois o menor valor vence.
         valores_chave = [
             (processo, self._chave(processo)) for processo in candidatos
         ]
@@ -62,6 +61,7 @@ class EscalonadorPorChave(EscalonadorBase):
         self._prontos = [
             processo for processo in self._prontos if processo is not escolhido
         ]
+        # O processo interrompido continua pronto para disputar a próxima seleção.
         if (
             self._preemptivo
             and em_execucao is not None

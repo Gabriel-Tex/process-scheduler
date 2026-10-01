@@ -12,6 +12,12 @@ from src.scheduler.schedulers.sjf import SJF
 from src.scheduler.schedulers.srtf import SRTF
 
 
+def test_algoritmos_do_epico_2_estao_registrados() -> None:
+    algoritmos_esperados = {"fcfs", "sjf", "srtf", "prioc", "priop"}
+
+    assert algoritmos_esperados.issubset(listar_algoritmos())
+
+
 def test_fcfs_escolhe_menor_instante_de_criacao() -> None:
     processo_recente = Processo("P1", 4, 3, 1)
     processo_antigo = Processo("P2", 1, 5, 1)
