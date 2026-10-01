@@ -66,7 +66,7 @@ def desempatar(
     Pressupostos:
         - ``candidatos`` é não vazio (quem chama já filtrou pelo critério
           principal do algoritmo, ex.: mesma prioridade).
-        - Nenhum ``Processo`` é modificado: a função é pura (só observa).
+        - Nenhum ``Processo`` é modificado; o sorteio avança o estado de ``aleatorio``.
 
     Critérios aplicados em ordem até restar um único candidato:
         1. Preferir o processo que JÁ ESTÁ na CPU (evita troca desnecessária).

@@ -8,6 +8,7 @@
 * [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
 * [`src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração](#srcschedulerioconfig_readerpy-leitura-do-arquivo-de-configuração)
 * [`src/scheduler/simulator/diagram.py`: Diagrama de Tempo](#srcschedulersimulatordiagrampy-diagrama-de-tempo)
+* [`src/scheduler/simulator/result.py`: Cálculo de Métricas e Resultado Consolidado](#srcschedulersimuladorresultpy-cálculo-de-métricas-e-resultado-consolidado)
 
 ---
 
@@ -19,7 +20,7 @@ Esta secção documenta as decisões de arquitetura e padrões de projeto aplica
 A classe `Processo` foi implementada utilizando o decorador `@dataclass` do Python. Esta decisão técnica foi tomada pelos seguintes motivos:
 * **Redução de *Boilerplate*:** Elimina a necessidade de escrever um método `__init__` repetitivo apenas para atribuição de variáveis.
 * **Facilidade de Depuração (Debug):** O `@dataclass` gera automaticamente um método `__repr__`, permitindo que qualquer `print(processo)` durante os testes de mesa ou validação dos algoritmos imprima o estado completo e legível do objeto em formato de *string* (ex: `Processo(id='P1', tempo_processamento=5...)`), em vez do endereço de memória genérico.
-* **Imutabilidade Estrutural:** Facilita a separação rigorosa entre os dados que o utilizador fornece e os dados que o sistema controla internamente.
+* **Separação de campos:** `init=False` separa entradas e estado calculado no construtor. A dataclass é mutável; essa separação não impede alterações posteriores.
 
 ### 2. Separação Estrita de Atributos (Campos de Entrada vs. Campos Geridos)
 Para evitar que o motor de simulação ou os escalonadores corrompam o estado inicial do processo, os atributos foram divididos em duas categorias claras:
@@ -28,7 +29,7 @@ Para evitar que o motor de simulação ou os escalonadores corrompam o estado in
 
 ### 3. Suporte Nativo a Prioridades Dinâmicas e Envelhecimento (*Aging*)
 Há necessidade de lidar com inanição (*starvation*) através do aumento proporcional da prioridade (envelhecimento).
-* Para suportar o algoritmo de Round-Robin com prioridade e envelhecimento, a classe armazena explicitamente a `prioridade_estatica` (imutável) e a `prioridade_dinamica` (variável).
+* Para suportar o algoritmo de Round-Robin com prioridade e envelhecimento, a classe armazena explicitamente a `prioridade_estatica` (mantida por convenção durante a execução) e a `prioridade_dinamica` (variável).
 * Na instanciação da tarefa, a `prioridade_dinamica` é automaticamente inicializada com o valor da prioridade fixa, garantindo que a entidade nasce pronta para algoritmos que aplicam *aging*. Assumiu-se a convenção de que um maior valor numérico representa uma maior prioridade.
 
 ### 4. Validação *Fail-Fast* no `__post_init__`
@@ -55,14 +56,14 @@ A lógica de passagem de tempo foi internalizada na classe:
 Este arquivo isola a estrutura responsável por armazenar os parâmetros de configuração exigidos para a parametrização dos algoritmos, especificamente o valor do *quantum* e a taxa de envelhecimento (*aging*).
 
 ### 1. Estrutura Simples com `@dataclass`
-Foi escolhida novamente a abstração `@dataclass` para criar um objeto de transferência de dados simples. Isso evita o uso de variáveis globais ou dicionários soltos (`dict`) para carregar as configurações lidas do ficheiro de texto plano, garantindo tipagem forte (`int`) e acesso estruturado, limpo e legível (ex: `config.quantum`, `config.aging`).
+Foi escolhida novamente a abstração `@dataclass` para criar um objeto de transferência de dados simples. Isso evita o uso de variáveis globais ou dicionários soltos (`dict`) para carregar as configurações lidas do ficheiro de texto plano, documentando os tipos esperados (`int`), sem validar tipos automaticamente e acesso estruturado, limpo e legível (ex: `config.quantum`, `config.aging`).
 
 ### 2. Uniformidade da Interface do Motor (Polimorfismo)
 A decisão arquitetural mais importante atrelada a este arquivo é o seu uso universal. Embora o *quantum* e o *aging* sejam parâmetros exclusivos dos algoritmos da família *Round-Robin*, o objeto `Configuracao` é instanciado e injetado no construtor de **todos** os escalonadores (incluindo FCFS, SJF, etc.). 
-* **Porquê?** Isso permite que a Fábrica de Escalonadores e o Motor de Simulação interajam com qualquer algoritmo utilizando exatamente a mesma assinatura base: `Escalonador(configuracao)`. Os algoritmos que não precisam destes parâmetros simplesmente os ignoram. Esta decisão mantém o motor limpo, polimórfico e estritamente livre de blocos `if/else` para checar qual algoritmo está a ser executado.
+* **Porquê?** Isso permite que a Fábrica de Escalonadores e o Motor de Simulação interajam com qualquer algoritmo utilizando exatamente a mesma assinatura base: `Escalonador(configuracao, aleatorio)`. Os algoritmos que não precisam destes parâmetros simplesmente os ignoram. Esta decisão mantém o motor limpo, polimórfico e estritamente livre de blocos `if/else` para checar qual algoritmo está a ser executado.
 
 ### 3. Valores Padrão (*Fallback* Seguro)
-Os atributos foram declarados com os valores padrão `quantum: int = 2` e `aging: int = 1`. Estes valores refletem exatamente o cenário de exemplo fornecido no enunciado da tarefa. Isto confere resiliência à aplicação: caso haja alguma inconsistência na leitura parcial do ficheiro de texto, a estrutura garante um estado base perfeitamente válido para a simulação prosseguir sem lançar exceções inesperadas.
+Os atributos foram declarados com os valores padrão `quantum: int = 2` e `aging: int = 1`. Estes valores correspondem ao exemplo do enunciado e são usados na construção sem argumentos. O leitor exige ambas as chaves: arquivo incompleto ou inválido gera erro, sem substituição silenciosa por padrões.
 
 ### 4. Alinhamento com o Modelo Matemático (Fator Alfa)
 O atributo `aging` modela o incremento de prioridade aplicado às tarefas que aguardam na fila. No contexto do código, este atributo traduz diretamente a fórmula $pd_i \leftarrow pd_i + \alpha$.
@@ -82,8 +83,8 @@ O motor de simulação opera num ciclo fixo a cada tick: processar chegadas → 
 
 ### 3. Regra de Desempate como Função Livre (`desempatar`)
 A regra de desempate foi implementada como uma **função de módulo** e não como um método de `EscalonadorBase`, pelas seguintes razões:
-* **Sem estado**: a função é pura - recebe candidatos, observa-os e devolve um vencedor, sem qualquer efeito colateral nem necessidade de aceder a `self`.
-* **Ponto único**: implementar a regra numa só localização garante que os três critérios (preferir quem já está na CPU → menor `tempo_restante` → aleatório) sejam aplicados de forma idêntica por todos os sete algoritmos, eliminando o risco de divergências subtis entre implementações.
+* **Sem alteração dos processos**: a função observa candidatos e devolve um vencedor. Não é pura: no último desempate, avança o estado do gerador aleatório recebido.
+* **Ponto único**: implementar a regra numa só localização garante que os três critérios (preferir quem já está na CPU → menor `tempo_restante` → aleatório) possam ser reutilizados pelos algoritmos por seleção; o RR simples segue a ordem FIFO, conforme a convenção documentada na revisão, eliminando o risco de divergências subtis entre implementações.
 
 ### 4. Ordem dos Critérios de Desempate
 A função aplica os critérios na sequência definida pelo enunciado:
@@ -105,7 +106,7 @@ Esta secção documenta as decisões relativas ao ponto central de instanciaçã
 
 ### 1. Registro Dinâmico com Função Explícita (`registrar`)
 A fábrica começa vazia e é populada por chamadas explícitas a `registrar(nome, construtor)`, tipicamente feitas ao nível de módulo de cada ficheiro de algoritmo (ex.: `fcfs.py`). Optou-se por uma função explícita em vez de um decorador de classe pelos seguintes motivos:
-* **Clareza de intenção**: o registo é uma acção visível e auditável no código, não um efeito colateral implícito de importação.
+* **Clareza de intenção**: o registo é uma acção visível e auditável no código, executada durante a importação do módulo. A fábrica carrega os módulos conhecidos antes de listar ou criar algoritmos.
 * **Flexibilidade**: o construtor registado não precisa de ser a classe directamente - pode ser uma *factory function* que adicione lógica de inicialização antes de devolver a instância.
 
 ### 2. Assinatura Uniforme dos Construtores (`Configuracao, random.Random`)
@@ -118,10 +119,10 @@ A função `registrar()` levanta `ValueError` se o nome já existir no registo. 
 Quando o nome solicitado não está registado, a `ValueError` inclui a lista de todos os algoritmos disponíveis. Isto é especialmente útil para o utilizador da CLI, que pode ter digitado um nome incorrecto (ex.: `rr_aging` em vez de `rr_prio_aging`), e torna a mensagem de erro auto-documentada.
 
 ### 5. *Fallback* para `random.Random()` Não-Determinístico
-Se a função `criar()` for chamada sem fornecer uma instância de `random.Random`, ela cria automaticamente uma com *seed* não-determinística. Isto garante que a utilização em produção (CLI sem `--seed`) funcione sem configuração adicional, enquanto os testes e validações manuais podem injectar uma *seed* fixa para reprodutibilidade.
+Se a função `criar()` for chamada sem fornecer uma instância de `random.Random`, ela cria automaticamente uma com *seed* não-determinística. Isto permite chamadas à fábrica sem semente explícita; a CLI ainda está pendente, enquanto os testes e validações manuais podem injectar uma *seed* fixa para reprodutibilidade.
 
 ### 6. `listar_algoritmos()` Preserva a Ordem de Inserção
-A função devolve os nomes na ordem em que foram registados, aproveitando a garantia de ordenação dos dicionários do Python 3.7+. A CLI utiliza esta lista para iterar sobre "todos os algoritmos" no modo padrão e para apresentar as opções válidas ao utilizador.
+A função devolve os nomes na ordem em que foram registados, aproveitando a garantia de ordenação dos dicionários do Python 3.7+. A futura CLI poderá utilizar esta lista para iterar sobre "todos os algoritmos" no modo padrão e para apresentar as opções válidas ao utilizador.
 
 ## `src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão
 
@@ -216,3 +217,90 @@ Cada coluna de processo tem largura igual a `max(2, len(id))` — 2 é o mínimo
 
 ### 8. Zero Ticks Produz Apenas o Cabeçalho
 Chamar `renderizar()` sem ter registado nenhum tick devolve apenas a linha de cabeçalho (`tempo  P1  P2  …`), sem lançar erro. Isto é útil para cenários de teste e evita tratar um caso especial no motor ("se não houver processos, não renderize").
+
+## Épico 3: Tkinter, Round-Robin e integração
+
+A interface usa Tkinter + ttk e separa widgets, controlador e serviços. O modo
+demonstrativo é explícito e não executa entradas do usuário. Para habilitar a
+simulação real solicitada, o motor compartilhado e as métricas foram implementados;
+a CLI e os algoritmos restantes continuam como entregas dos outros épicos.
+
+O RR simples usa deque. O RR com envelhecimento usa uma lista de prontos e
+envelhece somente os processos em espera ao fechar um quantum completo, sem
+preempção por prioridade no meio do quantum. A escolha restaura a prioridade estática;
+maior valor numérico significa maior prioridade.
+
+A GUI consome resultados por adaptador, com registros por tick opcionais e sem
+acessar atributos privados do diagrama. Consulte [o contrato e o roteiro](epico_3_interface.md)
+para a ordem dos hooks, a convenção de envelhecimento, os testes e as dependências.
+
+### Execução real e desempenho da interface
+
+O motor avança um segundo por vez, usando somente o contrato EscalonadorBase.
+Ele registra chegadas e presenças antes de consumir a CPU; o término ocorre no
+instante t + 1. A espera individual é término − chegada − duração.
+Os resultados carregam tanto as médias quanto os pares (ID, espera total).
+
+A interface recebe os processos cadastrados pelo serviço real. Para evitar
+trabalho repetido, preserva células do Canvas, não desenha a aba oculta e agrupa
+pedidos de desenho com after_idle. Alternar abas não reinicia a reprodução.
+
+## `src/scheduler/simulator/result.py`: Cálculo de Métricas e Resultado Consolidado
+
+Esta secção documenta as decisões de implementação relativas ao cálculo das métricas de simulação e sua consolidação num único objeto. As métricas calculadas incluem tempo médio de execução (turnaround), tempo médio de espera (waiting time) e número de trocas de contexto, de acordo com o exigido pela atividade e validado contra os exemplos dos slides.
+
+### 1. Separação em Funções Puras
+A lógica de cálculo foi isolada em funções independentes e puras (`calcular_tempos_medios` e `contar_trocas_contexto`) e uma função agregadora (`construir_resultado`), em vez de serem métodos da própria dataclass ou do motor. Esta decisão facilita os testes unitários isolados, visto que é possível validar as fórmulas simulando processos ou vetores de contexto arbitrariamente sem necessitar de uma simulação completa.
+
+### 2. Validação de Pré-condições em `calcular_tempos_medios`
+A função responsável por extrair os tempos de execução (tt) e espera (tw) garante que:
+* A lista de processos passada não é vazia. O retorno de um tuplo nulo ou zeros mascararia problemas de chamadas indevidas no sistema.
+* Todos os processos recebidos estejam efetivamente finalizados. O cálculo efetuado depende da propriedade calculada `instante_termino`, e caso o processo não tivesse finalizado, a geração do turnaround não seria representativa do término, produzindo métricas incorretas sem nenhum aviso. O uso de excepções do tipo `ValueError` sinaliza violações do contrato estrito.
+
+### 3. Fórmulas Explícitas Baseadas nos Slides
+O turnaround time foi padronizado como sendo a diferença entre `instante_termino` e `instante_criacao`. Por sua vez, o waiting time (espera) foi computado como a subtração `turnaround - tempo_processamento` (duração). Esta métrica padronizada segue a mesma que os slides de algoritmos da disciplina comprovam em todos os seus quadros de execução. Ambas originam a média aritmética dividida pela quantidade de processos, resultando nas métricas pedidas.
+
+### 4. Regra de Contagem de Trocas de Contexto
+A função `contar_trocas_contexto` atende rigorosamente à definição de que trocas de contexto são contabilizadas apenas em substituições consecutivas de alocação de processo à CPU: transições do estado ocioso (`None`) para execução ou saídas para o ócio **não** afetam este total. Esta restrição justifica o seu cálculo a partir de `execucoes[i-1]` contra `execucoes[i]`, que previne intersecções inválidas. Para garantir esta conformidade, transições ociosas intermédias suspendem a contabilização (ex.: `[P1, None, P2]` é ignorado na troca se o critério exigisse trocas diretas em iterador sucessivo). A implementação iterativa foi elaborada especificamente sobre adjacências com restrição nula.
+
+### 5. Dataclass Imutável `ResultadoSimulacao`
+A classe responsável por guardar as métricas foi decorada com `@dataclass(frozen=True)` visando garantir integridade total. Ao consolidar um conjunto numérico final de uma simulação (tt, tw, trocas e diagrama), torna-se uma fonte imutável e segura de apresentação. Nenhuma peça do sistema deve ser capaz de adulterar um resultado analítico previamente emitido.
+
+## `src/scheduler/gui/`: Interface Gráfica e Demonstração
+
+Esta secção reflete as escolhas de arquitetura do Épico 3 (GUI).
+
+### 1. Separação de Threads e Serviços
+A comunicação entre o núcleo da simulação e o Tkinter decorre via o adaptador `ServicoReal`, permitindo isolar o motor pesado (que pode correr com datasets maiores) da re-renderização assíncrona. Os serviços entregam apenas `ResultadoGUI` e `TickGUI`, evitando passar entidades mutáveis que poderiam corromper estados partilhados. Existe também um `ServicoDemonstrativo` como fixture ilustrativa, isolado da lógica efetiva.
+
+### 2. Otimização do Gantt (Cache Dinâmico)
+O Canvas do Tkinter foi desenhado para reaproveitar as células geradas. Em vez de redesenhar exaustivamente o diagrama a cada nova seleção, os preenchimentos são reciclados, redesenhando em tempo de reprodução `after_idle` ou ao trocar ativamente a página gráfica para evitar estrangulamento da janela (lagging) durante as atualizações. A velocidade da GUI (`1x` = nominal de 1000ms) reflete avanço ilustrativo em detrimento da velocidade da unidade de processamento.
+
+### 3. Convenções dos Round-Robin
+- **Simples (FIFO)**: Usa uma estrutura `deque`. O encerramento natural de processo remove o sujeito do ciclo; ao esgotar quantum incompleto, volta ao fim e o motor despacha entradas no instante *t* previamente antes da inserção recuada do exausto.
+- **Envelhecimento**: O envelhecimento (incremento da prioridade dinâmica) ocorre a cada fronteira de quantum. Uma fronteira é caracterizada por: quantum esgotado, término antecipado do processo, ou CPU ociosa mas com processos prontos. Nessas fronteiras, o processo escolhido restaura a sua prioridade, enquanto todos os restantes que aguardavam sofrem um incremento de aging (conforme D-04). Processos que chegam no decorrer de um quantum não sofrem e não provocam preempção, sendo apenas envelhecidos na fronteira subsequente.
+
+## Motor de Simulação e Saída (Histórias 1.7 e 1.8)
+
+### Responsabilidades
+- **Motor (`simular`)**: Orquestra a passagem do tempo de forma discreta (tick a tick). Centraliza as chegadas, presenças e chamadas ao escalonador. **Nunca calcula métricas** nem decide políticas (inversão de dependência via `EscalonadorBase`).
+- **Escritor (`output_writer.py`)**: Apenas formata o `ResultadoSimulacao` numa string de texto legível (bloco e tabela comparativa) para apresentação em texto pleno. Não escreve diretamente em `sys.stdout` no seu núcleo, mas recebe o fluxo `TextIO` via parâmetro `escrever_resultados()`.
+
+### Ordem dos Eventos por Tick
+No intervalo `[t, t+1)`:
+1. **Chegadas**: Processos com `instante_criacao == t` assumem status `PRONTO` e notificam o escalonador (`ao_chegar`).
+2. **Presentes**: Apuração dos processos já criados e não finalizados.
+3. **Seleção**: Chamada a `selecionar_proximo` com aplicação de validações *fail-fast* (e.g. rejeitar instâncias forasteiras ou retornos `None` com processos prontos).
+4. **Execução**: Altera-se o processo preemptado (se houver) para `PRONTO`, enquanto o eleito muda para `EXECUTANDO` e tem `tempo_restante` reduzido.
+5. **Término**: Se `tempo_restante == 0`, finaliza-se em `t + 1`.
+6. **Hook**: Notifica-se o algoritmo (`ao_finalizar_tick`).
+7. **Registro**: Salva-se id do executor e presentes para diagrama e cálculos a posteriori.
+
+### Por que o motor trabalha em cópias?
+O motor atua com `copy.deepcopy` da lista submetida de forma a respeitar a imutabilidade das instâncias originais da entrada. Isto garante que múltiplos algoritmos possam ser executados de forma determinística com os mesmos objetos, sem os "poluir" com status ou decrementar os seus tempos restantes simultaneamente.
+
+### Convenções Adotadas
+- **Término**: Um processo executado durante o tick `t` é considerado finalizado no instante `t + 1`.
+- **Presença**: Um processo conta como "presente" no diagrama no instante em que é criado, ou no qual está aguardando, incluindo o exato tick em que irá terminar as suas instruções.
+- **Trocas de contexto**: Contam-se transições apenas quando ocorrem dois executáveis consecutivos e *diferentes*. Ociosidade não conta.
+- **Formatação numérica**: Padronizada com vírgula e 2 casas decimais contendo pelo menos 1 (ex. `8,0` ou `9,75`), facilitando a legibilidade tal como expresso nos guiões da disciplina.

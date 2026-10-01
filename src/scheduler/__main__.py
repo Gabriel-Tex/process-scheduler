@@ -1,8 +1,5 @@
-"""
-Ponto de entrada do simulador.
+from src.scheduler.cli.app import main
+import sys
 
-Uso:
-    python -m escalonador [opções]
-
-Delega toda a orquestração para cli/app_cli.py via argparse.
-"""
+if __name__ == "__main__":
+    sys.exit(main())

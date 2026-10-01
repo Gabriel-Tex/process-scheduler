@@ -18,6 +18,7 @@ Suposições de design:
 
 from __future__ import annotations
 import random
+from importlib import import_module
 from collections.abc import Callable
 from src.scheduler.domain.configuration import Configuracao
 from src.scheduler.schedulers.base import EscalonadorBase
@@ -29,6 +30,16 @@ ConstrutoEscalonador = Callable[[Configuracao, random.Random], EscalonadorBase]
 
 # Registro interno. Preenchido por chamadas a registrar().
 _registro: dict[str, ConstrutoEscalonador] = {}
+
+
+def _carregar_algoritmos() -> None:
+    """Importar os módulos conhecidos uma vez (cache normal do Python).
+
+    Os módulos dos colegas podem continuar vazios até suas entregas.
+    O registro continua público para algoritmos adicionais.
+    """
+    for modulo in ("fcfs", "sjf", "srtf", "priority", "round_robin", "round_robin_aging"):
+        import_module(f"{__package__}.{modulo}")
 
 
 def registrar(nome: str, construtor: ConstrutoEscalonador) -> None:
@@ -63,6 +74,7 @@ def criar(
     Levanta ``ValueError`` com mensagem clara se o nome não estiver
     registrado, listando os algoritmos disponíveis.
     """
+    _carregar_algoritmos()
     if nome not in _registro:
         disponiveis = ", ".join(sorted(_registro)) or "(nenhum registrado)"
         raise ValueError(
@@ -83,4 +95,5 @@ def listar_algoritmos() -> list[str]:
     Útil para a CLI rodar "todos os algoritmos" e para exibir as
     opções válidas ao usuário. A ordem segue a ordem de registro.
     """
+    _carregar_algoritmos()
     return list(_registro)
