@@ -8,6 +8,7 @@
 * [`src/scheduler/io/input_reader.py`: Leitura da Entrada Padrão](#srcschedulerioinput_readerpy-leitura-da-entrada-padrão)
 * [`src/scheduler/io/config_reader.py`: Leitura do Arquivo de Configuração](#srcschedulerioconfig_readerpy-leitura-do-arquivo-de-configuração)
 * [`src/scheduler/simulator/diagram.py`: Diagrama de Tempo](#srcschedulersimulatordiagrampy-diagrama-de-tempo)
+* [`src/scheduler/simulator/resultado.py`: Cálculo de Métricas e Resultado Consolidado](#srcschedulersimuladorresultadopy-cálculo-de-métricas-e-resultado-consolidado)
 
 ---
 
