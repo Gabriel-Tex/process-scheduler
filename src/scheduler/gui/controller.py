@@ -1,15 +1,40 @@
-"""
-Controlador da GUI — ControladorGUI (bônus).
+"""Controlador testável sem janela. Valida usando os leitores do núcleo."""
 
-Responsabilidades (padrão MVC/MVP — Presenter/Controller):
-    - Receber eventos dos widgets (ex.: botão "Executar") e traduzi-los em
-      chamadas ao simulador.
-    - Ler dados de EntradaWidget e ConfigWidget, construir Processo e Configuracao.
-    - Invocar MotorSimulacao para cada algoritmo selecionado (mesmo motor da CLI).
-    - Repassar ResultadoSimulacao para ResultadoWidget e GanttWidget exibirem.
-    - Controlar a animação do Gantt (tick a tick com after() do tkinter ou similar).
+from io import StringIO
 
-Invariante:
-    - Nunca duplica lógica de simulação — usa exatamente o mesmo MotorSimulacao da CLI.
-    - Não faz print() — toda saída vai para os widgets.
-"""
+from src.scheduler.io.input_reader import ler_processos
+from src.scheduler.io.config_reader import ler_configuracao
+from .models import ResultadoGUI
+from .services import ServicoSimulacao, ALGORITMOS_PREEMPTIVOS
+
+
+class ControladorGUI:
+    def __init__(self, servico: ServicoSimulacao):
+        self.servico = servico
+        self.resultados: list[ResultadoGUI] = []
+
+    @staticmethod
+    def validar_processos(texto: str):
+        processos = ler_processos(StringIO(texto))
+        if not processos:
+            raise ValueError("Adicione pelo menos um processo.")
+        return processos
+
+    @staticmethod
+    def validar_config(quantum: str, aging: str):
+        return ler_configuracao(StringIO(f"quantum:{quantum}\naging:{aging}"))
+
+    def executar(self, texto: str, quantum: str, aging: str,
+                 algoritmos: list[str], permitir_preempcao: bool = True) -> list[ResultadoGUI]:
+        processos = self.validar_processos(texto)
+        config = self.validar_config(quantum, aging)
+        disponiveis = self.servico.listar_algoritmos()
+        if not algoritmos:
+            raise ValueError("Selecione pelo menos um algoritmo.")
+        if any(nome not in disponiveis for nome in algoritmos):
+            raise ValueError("Há um algoritmo selecionado que não está disponível.")
+        if not permitir_preempcao and ALGORITMOS_PREEMPTIVOS.intersection(algoritmos):
+            raise ValueError("Preempção desativada: selecione um algoritmo cooperativo.")
+        resultados = self.servico.executar(processos, config, algoritmos)
+        self.resultados = resultados
+        return resultados

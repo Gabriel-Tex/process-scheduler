@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Escritor de saída formatada — EscritorSaida.
 
 Responsabilidades:

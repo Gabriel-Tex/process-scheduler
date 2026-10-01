@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Escalonador FCFS — First-Come, First-Served.
 
 Algoritmo: não-preemptivo.

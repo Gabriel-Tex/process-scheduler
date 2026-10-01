@@ -263,3 +263,13 @@ Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + 
   1. Criar um `Canvas` desenhando uma barra colorida por processo.
   2. Usar `widget.after(ms, callback)` para avançar um tick por vez, lendo os dados do `DiagramaTempo`.
   3. Adicionar controles de play/pause/velocidade, se o tempo permitir.
+
+## Nota de revisão da implementação
+
+Este arquivo preserva o planejamento original. A convenção implementada de
+aging é detalhada em `docs/epico_3_interface.md`: somente processos em espera
+recebem incremento ao completar um quantum; não há incremento no ócio, na
+primeira seleção ou após término antecipado. Isso corrige a divergência com
+o passo 3.2 que menciona incremento por seleção/ociosidade.
+As médias dos slides acima não são oráculos verificados sem suas entradas.
+Veja `docs/revisao_projeto.md` para requisitos explícitos e ambiguidades do PDF.
