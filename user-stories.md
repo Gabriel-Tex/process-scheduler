@@ -1,253 +1,233 @@
-# Planejamento do Simulador de Escalonamento de Processos
+# Simulador de Escalonamento de Processos: Histórias de Usuário 
 
 **Aviso: esse documento foi gerado por IA para fins de planejamento e organização do projeto. Ele não substitui a comunicação direta entre os membros da equipe, mas serve como referência para dividir tarefas e acompanhar o progresso.**
 
-## 🎯 Estratégia de Divisão
+## Regras do enunciado que valem para todas as histórias
 
-Para os 3 épicos ficarem o mais independentes possível, a chave é isolar o que todo mundo depende (o "contrato") em histórias curtas e prioritárias dentro do **Épico 1**, e comunicá-las ao time assim que ficarem prontas — mesmo antes do Épico 1 terminar por completo. 
+1. Linguagem: Python.
+2. Entrada: processos lidos da **entrada padrão (stdin)**, uma linha por processo, com três inteiros separados por **um ou mais espaços em branco**: instante de criação, duração em segundos e prioridade estática (escala positiva). A listagem **não precisa estar ordenada** por instante de criação.
+3. Configuração: arquivo de texto plano com `quantum:2` e `aging:1`.
+4. Saída padrão (stdout), **para cada algoritmo**: tempo médio de vida (tt), tempo médio de espera (tw), número de trocas de contexto e diagrama de tempo (uma linha por segundo, na vertical).
+5. **Desempate** na escolha do processo que ocupa o processador: (i) o processo que já está com o processador; (ii) o de menor tempo restante; (iii) escolha aleatória.
+6. Round-Robin com prioridade e envelhecimento: o envelhecimento ocorre **a cada quantum** e **não há preempção por prioridade**.
+7. Entregáveis: código **devidamente comentado** e documento de decisões de implementação (classes, estruturas de dados, padrões de projeto, estrutura do processo com id, status, prioridade).
+8. Interface visual: bônus, a critério da equipe.
 
-Especificamente: as duas primeiras histórias do Épico 1 (modelo de domínio + interface `EscalonadorBase`/fábrica) devem sair primeiro, porque são o que os Épicos 2 e 3 importam para trabalhar. A partir daí, os três épicos correm em paralelo sem se bloquear.
+### Definição de pronto (vale para toda história)
 
-### Divisão por Responsável
+- Código comentado (docstrings e comentários nos pontos não óbvios).
+- Testes automatizados ou validação manual registrada.
+- Nenhuma dependência de `sys.stdin`/`open()` dentro da lógica de domínio (a E/S fica nas bordas).
 
-* **Épico 1 — Núcleo, E/S e Motor de Simulação (+ CLI):** Trabalho de infraestrutura, sem "algoritmo" nenhum — é quem sustenta os outros dois.
-* **Épico 2 — Algoritmos por Seleção:** FCFS, SJF, SRTF, Prioridade Cooperativa e Prioridade Preemptiva (5 algoritmos que compartilham a mesma "forma", então depois do primeiro os demais saem rápido).
-* **Épico 3 — Algoritmos por Fila Circular + Interface Gráfica:** Os 2 algoritmos mais "mecânicos" (Round-Robin e Round-Robin com envelhecimento) para satisfazer quem quer mexer em algoritmo, e toda a GUI, que é o grosso do trabalho desse épico.
+## Estratégia de divisão
 
-> **Equilíbrio de Carga:** ~7 a 10 histórias por pessoa, com naturezas diferentes mas esforço total comparável.
+As histórias 1.1 e 1.2 formam o contrato e devem ser publicadas primeiro. A partir delas, os três épicos correm em paralelo.
+
+- **Épico 1** — Núcleo, E/S, motor de simulação e CLI (Membro 1).
+- **Épico 2** — Algoritmos por seleção: FCFS, SJF, SRTF, PRIOc, PRIOp (Membro 2).
+- **Épico 3** — Round-Robin, Round-Robin com envelhecimento e interface gráfica (Membro 3).
 
 ---
 
-## 📌 Épico 1 — Núcleo do Domínio, E/S e Motor de Simulação
-**Responsável:** Membro 1
+## Épico 1: Núcleo do Domínio, E/S e Motor de Simulação
 
 ### 1.1 Modelagem do domínio
-* **História:** Como desenvolvedor, quero as entidades `Processo`, `StatusProcesso` e `Configuracao` prontas, para que os outros dois épicos tenham um contrato estável desde o primeiro dia.
-* **Critérios de Aceitação:**
-  * `Processo` guarda: id, instante de criação, duração original, tempo restante, prioridade estática, prioridade dinâmica, status, instante de início/término.
-  * `Configuracao` guarda: `quantum` e `aging`.
-* **Passos:**
-  1. Criar `StatusProcesso` (enum: `NOVO`, `PRONTO`, `EXECUTANDO`, `FINALIZADO`).
-  2. Criar `Processo` como dataclass com os campos acima e um método simples `executar_um_tick()`.
-  3. Criar `Configuracao` como dataclass simples.
-  4. ⚠️ **Avisar o time assim que este arquivo estiver pronto** — é o bloqueio principal dos outros épicos.
+- **História:** Como desenvolvedor, quero as entidades `Processo`, `StatusProcesso` e `Configuracao` prontas, para que os outros épicos tenham um contrato estável.
+- **Critérios de aceitação:**
+  - `Processo` guarda: id, instante de criação, duração original, tempo restante, prioridade estática, prioridade dinâmica, status, instante de início da primeira execução e instante de término.
+  - `StatusProcesso`: `NOVO`, `PRONTO`, `EXECUTANDO`, `FINALIZADO`.
+  - `Configuracao` guarda `quantum` e `aging` (ambos opcionais, `None` se ausentes).
+  - Validação de domínio em `Processo.__post_init__`: duração > 0, instante de criação >= 0, prioridade >= 0.
+  - Campos e métodos comentados (a estrutura do processo deve ser descrita no documento de decisões).
+- **Arquivos:** `src/scheduler/domain/process.py`, `src/scheduler/domain/configuration.py`
+- ⚠️ Avisar o time assim que estiver pronto.
 
-### 1.2 Interface abstrata dos escalonadores + regra de desempate + fábrica
-* **História:** Como desenvolvedor, quero uma interface comum (`EscalonadorBase`) e uma função de desempate compartilhada, para que qualquer algoritmo implementado pelos colegas se encaixe no motor sem alterações.
-* **Critérios de Aceitação:**
-  * Desempate segue exatamente a regra da tarefa:
-    1. Processo já em execução;
-    2. Menor tempo restante;
-    3. Escolha aleatória.
-  * Existe um registro (`fabrica.py`) que mapeia `nome do algoritmo → construtor`, vazio no início, para os colegas registrarem suas classes.
-* **Passos:**
-  1. Definir `EscalonadorBase` com `ao_chegar`, `selecionar_proximo` (abstrato) e `ao_finalizar_tick` (hook opcional, no-op por padrão).
-  2. Implementar `desempate(candidatos, em_execucao, rng)` seguindo a regra dos 3 critérios.
-  3. Receber um `random.Random` por injeção (não usar `random` global direto), para deixar comportamento reprodutível.
-  4. Criar `fabrica.py` com um dicionário `{nome: construtor}` e uma função `criar(nome, config)`.
-  5. ⚠️ **Publicar essa interface para o time** (ex.: num PR pequeno) antes de seguir para as próximas histórias.
+### 1.2 Interface dos escalonadores, desempate e fábrica
+- **História:** Como desenvolvedor, quero uma interface comum e uma função de desempate compartilhada, para que qualquer algoritmo se encaixe no motor sem alterações.
+- **Critérios de aceitação:**
+  - `EscalonadorBase` com `ao_chegar`, `selecionar_proximo` (abstrato) e `ao_finalizar_tick` (hook, no-op por padrão).
+  - `desempatar(candidatos, em_execucao, aleatorio)` aplica **exatamente** a regra do enunciado: (i) processo em execução; (ii) menor tempo restante; (iii) escolha aleatória.
+  - O desempate é aplicado **sempre que houver empate na chave principal do algoritmo**, inclusive no FCFS.
+  - `random.Random` é injetado (comportamento reprodutível com semente).
+  - `factory.py` com `registrar`, `criar` e `listar_algoritmos`.
+- **Arquivos:** `src/scheduler/schedulers/base.py`, `src/scheduler/schedulers/factory.py`
 
-### 1.3 Leitura da entrada padrão (stdin)
-* **História:** Como usuário do simulador, quero fornecer processos via `stdin` no formato `instante duração prioridade`, para simular meu próprio cenário.
-* **Critérios de Aceitação:**
-  * Cada linha vira um processo, com id atribuído na ordem em que aparece (`P1`, `P2`, ...), não reordenado por instante de chegada.
-  * Erros de formato geram mensagem clara.
-* **Passos:**
-  1. Ler linha a linha de `sys.stdin`.
-  2. Fazer split por espaços (um ou mais) e converter para inteiros.
-  3. Validar (`duração > 0`, `instante ≥ 0`, `prioridade ≥ 0`); levantar erro descritivo se inválido.
-  4. Retornar lista de especificações de processo (não instâncias mutáveis — isso evita vazamento de estado entre execuções de algoritmos diferentes).
+### 1.3 🔧 Leitura da entrada padrão
+- **História:** Como usuário, quero fornecer processos via stdin, no formato `instante duração prioridade`, para simular meu cenário.
+- **Critérios de aceitação:**
+  - Cada linha vira um processo, com id `P1`, `P2`, ... na **ordem de leitura** (sem reordenar por instante).
+  - Campos separados por **um ou mais espaços em branco** (usar `split()` sem argumento, que também cobre tabs).
+  - Linhas em branco são ignoradas.
+  - Linha com número de campos diferente de 3 ou valor não inteiro gera `EntradaInvalidaError` (subclasse de `ValueError`) com o número da linha.
+  - Erros de domínio (`ValueError` do `Processo`) são repassados com o número da linha, sem duplicar a validação.
+  - Entrada sem nenhum processo gera erro claro.
+- **Assinatura:** `ler_processos(entrada: TextIO) -> list[Processo]`
+- **Arquivo:** `src/scheduler/io/input_reader.py`
 
-### 1.4 Leitura do arquivo de configuração
-* **História:** Como usuário do simulador, quero configurar quantum e taxa de envelhecimento por um arquivo texto, para parametrizar os algoritmos Round-Robin.
-* **Critérios de Aceitação:**
-  * Aceita o formato `quantum:2` / `aging:1` exatamente como no exemplo da tarefa.
-* **Passos:**
-  1. Ler o arquivo linha a linha, dividir por `:`.
-  2. Tolerar espaços em branco extras.
-  3. Montar e retornar um `Configuracao`.
-  4. Definir e documentar o que acontece se `aging` ou `quantum` faltar (erro claro, já que os RR dependem deles).
+### 1.4 🔧 Leitura do arquivo de configuração
+- **História:** Como usuário, quero configurar quantum e taxa de envelhecimento por arquivo de texto plano, para parametrizar os algoritmos Round-Robin.
+- **Critérios de aceitação:**
+  - Aceita o formato `quantum:2` / `aging:1`, tolerando espaços extras e chaves em qualquer caixa.
+  - Linhas em branco e comentários (`#`) são ignorados.
+  - Valores devem ser inteiros > 0; caso contrário, `ConfiguracaoInvalidaError` com o número da linha.
+  - Chave repetida ou desconhecida gera erro.
+  - **Chave ausente não é erro na leitura:** o campo fica `None`. A obrigatoriedade é checada na criação do algoritmo (RR exige `quantum`; RR com envelhecimento exige `quantum` e `aging`; os demais não exigem nada). Assim, os cinco algoritmos sem quantum rodam mesmo sem configuração completa.
+- **Assinatura:** `ler_configuracao(arquivo: TextIO) -> Configuracao`
+- **Arquivo:** `src/scheduler/io/config_reader.py`
 
-### 1.5 Diagrama de tempo
-* **História:** Como usuário do simulador, quero ver o diagrama de execução tick a tick, para visualizar como cada algoritmo se comportou.
-* **Critérios de Aceitação:**
-  * Uma linha por segundo:
-    * `##` para quem está executando;
-    * `--` para quem está pronto/aguardando;
-    * Célula em branco para quem ainda não chegou ou já terminou.
-  * Formato idêntico ao exemplo do enunciado.
-* **Passos:**
-  1. Criar `DiagramaTempo` que recebe, a cada tick, o id de quem executou (ou nenhum) e o conjunto de ids já chegados/ainda não finalizados.
-  2. Guardar essas linhas internamente.
-  3. Implementar um método de renderização para texto no formato pedido.
+### 1.5 🔧 Diagrama de tempo
+- **História:** Como usuário, quero ver o diagrama de execução, uma linha por segundo, para visualizar o comportamento de cada algoritmo.
+- **Critérios de aceitação:**
+  - Formato do enunciado: cabeçalho `tempo P1 P2 ...` e linhas `0- 1`, `1- 2`, ..., `10-11`.
+  - Célula `##` para o processo executando, `--` para o processo presente e aguardando, e **em branco** para quem ainda não chegou ou já terminou.
+  - Um processo conta como presente **desde o início do tick em que chega** (no exemplo do enunciado, P4, criado em 3, aparece como `--` na linha `3- 4`).
+  - Tick ocioso (ninguém presente ou ninguém executando) gera linha só com o intervalo e células em branco.
+  - Zero ticks devolve apenas o cabeçalho.
+  - Colunas de largura dinâmica, alinhadas conforme o exemplo do enunciado.
+  - **Teste de aceitação:** reproduzir exatamente o diagrama do enunciado (veja o oráculo na história 3.1).
+- **API:** `DiagramaTempo(ids)`, `registrar_tick(executando, presentes)`, `renderizar() -> str` (sem `print`).
+- **Arquivo:** `src/scheduler/simulator/diagram.py`
 
-### 1.6 Cálculo de métricas e resultado consolidado
-* **História:** Como usuário do simulador, quero ver tempo médio de execução, tempo médio de espera e número de trocas de contexto por algoritmo, para comparar os algoritmos entre si.
-* **Critérios de Aceitação:**
-  * `tt` e `tw` calculados como média sobre todos os processos.
-  * Trocas de contexto contam apenas transições entre processos diferentes (sair do ócio para o primeiro processo não conta).
-* **Passos:**
-  1. Ao finalizar cada processo, calcular seu turnaround (`término − criação`) e espera (`turnaround − duração`).
-  2. Agregar médias.
-  3. Contar trocas de contexto durante a simulação (não recalcular depois — no próprio motor, no momento em que ele troca quem executa).
-  4. Montar `ResultadoSimulacao` (nome do algoritmo, `tt`, `tw`, trocas, diagrama).
+### 1.6 🔧 Métricas e resultado consolidado
+- **História:** Como usuário, quero ver tt, tw, tempo de resposta e trocas de contexto por algoritmo, para compará-los.
+- **Critérios de aceitação:**
+  - `tt = média(término − criação)`.
+  - `tw = média(tt do processo − duração)`.
+  - **Tempo de resposta (tr)** `= média(instante da primeira execução − criação)`. Os objetivos da atividade citam essa métrica, embora a lista de saída não a exija; exibi-la é opcional e não substitui tt/tw.
+  - **Trocas de contexto:** conta-se quando dois ticks consecutivos executam processos **diferentes** (`A` seguido de `B`). A primeira execução e tick ocioso entre processos **não** contam como troca. Esta convenção é registrada no documento de decisões.
+  - `ResultadoSimulacao` imutável (`@dataclass(frozen=True)`) com nome do algoritmo, tt, tw, tr, trocas, tempo total e diagrama.
+- **Arquivo:** `src/scheduler/simulator/result.py`
 
-### 1.7 Motor de simulação
-* **História:** Como desenvolvedor, quero um motor único que receba uma lista de processos e um `EscalonadorBase` e devolva um `ResultadoSimulacao`, para reaproveitar a mesma lógica em todos os 7 algoritmos.
-* **Critérios de Aceitação:**
-  * Funciona de forma idêntica para algoritmos cooperativos e preemptivos, sem `if` especial por algoritmo dentro do motor.
-* **Passos:**
-  1. Implementar laço por tick:
-     1. Processar chegadas do instante atual;
-     2. Chamar `selecionar_proximo`;
-     3. Contar troca de contexto se mudou;
-     4. Executar 1 segundo do processo escolhido;
-     5. Marcar finalização se zerou o tempo restante;
-     6. Chamar `ao_finalizar_tick`;
-     7. Registrar linha no diagrama.
-  2. Parar quando todos os processos estiverem finalizados.
-  3. Garantir que cada chamada ao motor recebe/gera cópias novas de `Processo` (nunca reaproveitar instâncias entre execuções).
+### 1.7 🔧 Motor de simulação
+- **História:** Como desenvolvedor, quero um motor único que receba processos e um `EscalonadorBase` e devolva um `ResultadoSimulacao`, para reutilizar a lógica nos 7 algoritmos.
+- **Critérios de aceitação:**
+  - Sem `if` por algoritmo dentro do motor (cooperativo e preemptivo se comportam via `selecionar_proximo`).
+  - Ordem dentro de cada tick: (1) registrar chegadas do instante atual (processos com mesmo instante entram na ordem de leitura); (2) `selecionar_proximo`; (3) contar troca de contexto se mudou; (4) executar 1 segundo; (5) marcar término se o tempo restante zerou; (6) `ao_finalizar_tick`; (7) registrar a linha no diagrama.
+  - **Ticks ociosos:** se não há processo pronto, o tempo avança, a CPU fica ociosa e a linha é registrada em branco.
+  - Termina quando todos os processos estiverem finalizados.
+  - Cada execução usa **cópias novas** dos `Processo`.
+  - Aceita entrada desordenada por instante de criação.
+- **Arquivo:** `src/scheduler/simulator/engine.py`
 
-### 1.8 Escrita da saída formatada
-* **História:** Como usuário do simulador, quero a saída impressa no terminal exatamente no formato pedido pela atividade, para poder entregar a saída do programa.
-* **Passos:**
-  1. Receber um ou mais `ResultadoSimulacao` e formatar `tt`, `tw`, trocas de contexto e diagrama como texto.
-  2. Manter essa formatação isolada da lógica de cálculo (o motor não sabe imprimir nada).
+### 1.8 🔧 Escrita da saída formatada
+- **História:** Como usuário, quero a saída no stdout no formato pedido pela atividade, para poder entregá-la.
+- **Critérios de aceitação:**
+  - Para **cada algoritmo**, imprimir: nome, tt, tw, número de trocas de contexto e o diagrama de tempo.
+  - Números médios com uma casa decimal e vírgula ou ponto de forma consistente (decisão documentada).
+  - Formatação isolada da lógica de cálculo (o motor não imprime).
+  - Função recebe `ResultadoSimulacao` e um `TextIO` de saída (testável).
+- **Arquivo:** `src/scheduler/io/output_writer.py`
 
-### 1.9 CLI orquestradora
-* **História:** Como usuário do simulador, quero rodar `python -m escalonador --config config.txt < entrada.txt` e ver o resultado de todos os algoritmos (ou de um específico), para usar o simulador via linha de comando.
-* **Critérios de Aceitação:**
-  * Por padrão, roda os 7 algoritmos sobre o mesmo conjunto de processos e imprime um bloco por algoritmo, ao final com uma tabela comparativa (como o "Quadro Comparativo" dos slides).
-  * Aceita flag para rodar só um algoritmo específico.
-* **Passos:**
-  1. Usar `argparse` para `--config` e `--algoritmo` (opcional).
-  2. Ler `stdin` e `config`.
-  3. Para cada algoritmo registrado na fábrica: criar instância nova, criar processos novos, rodar o motor, guardar resultado.
-  4. Imprimir tudo via `escritor_saida`, terminando com a tabela comparativa.
+### 1.9 🔧 CLI orquestradora
+- **História:** Como usuário, quero rodar `python -m scheduler [--config config.txt] [--algoritmo nome] < entrada.txt`, para usar o simulador pela linha de comando.
+- **Critérios de aceitação:**
+  - Lê processos do **stdin** e a configuração do arquivo indicado em `--config`. Sem a flag, tenta `config.txt` no diretório atual (o enunciado não define como o arquivo é passado, então o programa não pode quebrar quando o professor não passar argumentos). Se o arquivo não existir, algoritmos que não usam quantum/aging rodam normalmente e os demais informam o erro de forma clara.
+  - Por padrão executa os 7 algoritmos sobre os mesmos processos e imprime um bloco por algoritmo.
+  - Ao final, imprime uma tabela comparativa (tt, tw, trocas; tempo total opcional).
+  - `--algoritmo` executa apenas um algoritmo (nomes validados contra a fábrica).
+  - `--semente` (opcional) fixa o gerador aleatório do desempate.
+  - Mensagens de erro de entrada vão para stderr, com código de saída diferente de zero.
+- **Arquivos:** `src/scheduler/__main__.py`, `src/scheduler/cli.py`
 
-### 1.10 Consolidação do documento de decisões de implementação (colaborativa)
-* **História:** Como equipe, queremos um documento único descrevendo as decisões de implementação, estruturas de dados e padrões de projeto usados, para atender à exigência da atividade.
-* **Passos:**
-  1. Membro 1 escreve a seção de arquitetura geral, domínio, E/S e motor.
-  2. Membro 2 e Membro 3 completam a seção do seu próprio épico (algoritmos e GUI) — combinar um prazo comum próximo à entrega final.
-  3. Membro 1 consolida tudo em `docs/decisoes_implementacao.md`.
+### 1.10 🔧 Documento de decisões de implementação
+- **História:** Como equipe, queremos o documento exigido pelo enunciado, para justificar nossas escolhas.
+- **Critérios de aceitação:** `docs/decisoes_implementacao.md` contém:
+  - classes e responsabilidades;
+  - **estrutura do processo** (id, status, prioridade etc.);
+  - estruturas de dados usadas (por exemplo `deque`, listas de prontos);
+  - padrões de projeto (Strategy para os escalonadores, Factory/registro, separação E/S × domínio);
+  - convenções adotadas onde o enunciado é omisso: prioridade (maior valor = maior prioridade), ordem na fila do RR, trocas de contexto, ticks ociosos, regra de aging, tratamento do empate no FCFS.
+- **Passos:** Membro 1 escreve arquitetura, domínio, E/S e motor; Membros 2 e 3 escrevem as seções dos seus épicos; Membro 1 consolida.
 
 ---
 
-## 📌 Épico 2 — Algoritmos por Seleção
-**Responsável:** Membro 2  
-*(Depende apenas das histórias 1.1 e 1.2 do Épico 1)*
+## Épico 2: Algoritmos por Seleção
+Depende apenas de 1.1 e 1.2.
 
-### 2.1 FCFS (First-Come, First-Served)
-* **História:** Como usuário do simulador, quero escalonar processos pela ordem de chegada, para ter a linha de base de comparação entre os algoritmos.
-* **Passos:**
-  1. Implementar `FCFS(EscalonadorBase)`: manter lista de prontos; `selecionar_proximo` devolve quem já está executando (não interrompe); se CPU ociosa, escolhe o de menor instante de criação usando desempate.
-  2. Registrar `"fcfs"` na fábrica.
-  3. Validar manualmente com o dataset dos slides (T1–T5): deve dar `tt=8,0` / `tw=5,2` / `4` trocas de contexto.
+### 2.1 🔧 FCFS
+- **História:** Como usuário, quero escalonar pela ordem de chegada, para ter a linha de base de comparação.
+- **Critérios de aceitação:**
+  - Não preemptivo: o processo em execução segue até terminar.
+  - Chave principal: instante de criação. Empates na chave são resolvidos pela regra do enunciado ((i) em execução; (ii) menor tempo restante; (iii) aleatório).
+  - Registrado como `"fcfs"`.
+- **Validação:**
+  - Dataset dos slides (T1–T5): com o desempate do enunciado, T2 (duração 2) precede T1 (duração 5) em t=0. Resultado esperado: `tt=7,4`, `tw=4,6`, 4 trocas.
+  - Os slides mostram `tt=8,0` / `tw=5,2`, porque rodam T1 antes de T2 (ordem de id). Essa divergência é esperada e deve ser registrada no documento de decisões. Para reproduzir os slides, basta remover o critério (ii) do FCFS.
 
-### 2.2 Extrair a base comum de "seleção por chave"
-* **História:** Como desenvolvedor, quero abstrair a lógica comum entre FCFS, SJF e Prioridade Cooperativa em uma classe base reaproveitável, para não duplicar código nas próximas histórias.
-* **Passos:**
-  1. Criar uma classe intermediária parametrizada por `chave` (função) e `preemptivo` (bool).
-  2. Reescrever o FCFS de 2.1 como uma instância dessa classe (`chave = instante de criação`, `preemptivo = False`).
-  3. Confirmar que o teste manual de 2.1 continua batendo.
+### 2.2 Base comum de "seleção por chave"
+- **História:** Como desenvolvedor, quero uma classe base parametrizada por `chave` e `preemptivo`, para não duplicar código entre FCFS, SJF, SRTF, PRIOc e PRIOp.
+- **Critérios de aceitação:**
+  - Em modo preemptivo, o processo em execução entra no conjunto de candidatos a cada tick.
+  - Empates na chave sempre passam por `desempatar`.
+  - Testes de 2.1 continuam passando após a refatoração.
 
-### 2.3 SJF (Shortest Job First)
-* **História:** Como usuário do simulador, quero escalonar pela menor duração total, para reduzir o tempo médio de espera.
-* **Passos:**
-  1. Instanciar a base de 2.2 com `chave = duração original`, `preemptivo = False`.
-  2. Registrar `"sjf"` na fábrica.
-  3. Validar com o dataset dos slides: `tt=5,8` / `tw=3,0` / `4` trocas.
+### 2.3 SJF
+- **Critérios de aceitação:** chave = duração original, não preemptivo, registrado como `"sjf"`.
+- **Validação (slides):** `tt=5,8` / `tw=3,0` / 4 trocas.
 
-### 2.4 Prioridade Cooperativa (PRIOc)
-* **História:** Como usuário do simulador, quero escalonar por prioridade estática sem preempção, para simular ambientes onde trocar de contexto é caro mas a prioridade ainda importa.
-* **Passos:**
-  1. Confirmar com o time a convenção de prioridade (maior valor = mais prioridade, como nos slides) — deixar documentado.
-  2. Instanciar a base de 2.2 com `chave = prioridade (decrescente)`, `preemptivo = False`.
-  3. Registrar `"prioc"` na fábrica.
-  4. Validar: `tt=6,6` / `tw=3,8` / `4` trocas.
+### 2.4 🔧 Prioridade cooperativa (PRIOc)
+- **Critérios de aceitação:**
+  - Convenção **maior valor = maior prioridade** (enunciado diz apenas "escala de prioridades positiva", e a convenção vem dos slides). Documentada no documento de decisões.
+  - Chave = prioridade estática (decrescente), não preemptivo, registrado como `"prioc"`.
+- **Validação (slides):** `tt=6,6` / `tw=3,8` / 4 trocas.
 
-### 2.5 SRTF (Shortest Remaining Time First)
-* **História:** Como usuário do simulador, quero a versão preemptiva do SJF, para minimizar ainda mais o tempo de espera.
-* **Passos:**
-  1. Instanciar a base de 2.2 com `chave = tempo restante`, `preemptivo = True` (incluir o processo em execução no conjunto de candidatos a cada tick).
-  2. Registrar `"srtf"` na fábrica.
-  3. Validar: `tt=5,4` / `tw=2,6` / `5` trocas.
+### 2.5 SRTF
+- **Critérios de aceitação:** chave = tempo restante, preemptivo, registrado como `"srtf"`. No empate com o processo em execução, ele permanece (regra (i)).
+- **Validação (slides):** `tt=5,4` / `tw=2,6` / 5 trocas.
 
-### 2.6 Prioridade Preemptiva (PRIOp)
-* **História:** Como usuário do simulador, quero escalonar por prioridade com preempção, para que tarefas mais importantes tomem a CPU assim que chegam.
-* **Passos:**
-  1. Instanciar a base de 2.2 com `chave = prioridade`, `preemptivo = True`.
-  2. Registrar `"priop"` na fábrica.
-  3. Validar: `tt=5,6` / `tw=2,8` / `6` trocas.
+### 2.6 Prioridade preemptiva (PRIOp)
+- **Critérios de aceitação:** chave = prioridade estática (decrescente), preemptivo, registrado como `"priop"`.
+- **Validação (slides):** `tt=5,6` / `tw=2,8` / 6 trocas.
 
 ### 2.7 Fechamento do épico
-* **História:** Como equipe, queremos garantir que os 5 algoritmos estão registrados e corretos antes da integração final.
-* **Passos:**
-  1. Conferir que os 5 nomes estão na fábrica.
-  2. Rodar manualmente (assim que a CLI do Épico 1 estiver pronta) com o dataset dos slides e comparar todos os números com o "Quadro Comparativo".
-  3. Escrever a seção correspondente no documento de decisões (história 1.10).
+- Os 5 nomes estão na fábrica.
+- Comparar com o "Quadro Comparativo" dos slides, lembrando que o FCFS difere por causa do desempate (ver 2.1).
+- Escrever a seção do épico no documento de decisões (1.10).
 
 ---
 
-## 📌 Épico 3 — Algoritmos por Fila Circular + Interface Gráfica
-**Responsável:** Membro 3  
-*(As histórias 3.1–3.2 dependem de 1.1/1.2; a GUI depende de 1.6/1.7/1.9 — mas 3.3 já pode iniciar em paralelo com mocks)*
+## Épico 3: Round-Robin e Interface Gráfica
 
-### 3.1 Round-Robin puro
-* **História:** Como usuário do simulador, quero escalonar por revezamento de tempo com quantum fixo, para obter mais justiça na distribuição da CPU.
-* **Passos:**
-  1. Implementar `RoundRobin(EscalonadorBase)` com uma fila (`collections.deque`).
-  2. `ao_chegar`: adiciona ao fim da fila. 
-  3. `selecionar_proximo`: se CPU ociosa, tira do início da fila; se quantum do processo atual esgotou, devolve-o ao fim da fila e tira o próximo.
-  4. Usar `ao_finalizar_tick` para contar o quantum consumido.
-  5. Registrar `"rr"` na fábrica.
-  6. Validar com `quantum=2` no dataset dos slides: `tt=8,4` / `tw=5,6` / `7` trocas.
+### 3.1 🔧 Round-Robin (sem prioridade)
+- **História:** Como usuário, quero revezamento por quantum fixo, sem considerar prioridade.
+- **Critérios de aceitação:**
+  - Usa `quantum` da configuração; erro claro se ausente.
+  - Fila FIFO (`collections.deque`).
+  - **Convenção da fila:** quando uma chegada e o fim de quantum ocorrem no mesmo instante, o processo recém-chegado entra na fila **antes** do processo preemptado (convenção observada nos slides 107, onde T3 chega em t=1, T1 volta em t=2 e a fila fica T3 à frente de T1).
+  - Um processo que termina antes do quantum libera a CPU imediatamente, e o próximo da fila assume.
+  - Se o único processo pronto esgota o quantum, ele continua sem troca de contexto.
+  - Registrado como `"rr"`.
+- **Validação (slides, quantum=2):** `tt=8,4` / `tw=5,6` / 7 trocas.
+- **Oráculo do enunciado (quantum=2):** entrada `0 5 2 / 0 2 3 / 1 4 1 / 3 3 4` deve reproduzir exatamente o diagrama do PDF (execução: P1 P1 P2 P2 P3 P3 P1 P1 P4 P4 P3 P3 P1 P4, em 14 segundos), com `tt=9,75`, `tw=6,25` e 7 trocas.
 
-### 3.2 Round-Robin com prioridade e envelhecimento
-* **História:** Como usuário do simulador, quero um Round-Robin cuja escolha do próximo processo, a cada quantum, considere a prioridade dinâmica com envelhecimento, para equilibrar justiça e importância.
-* **Critérios de Aceitação:**
-  * Envelhecimento ocorre a cada quantum (não a cada tick).
-  * Sem preempção por prioridade no meio do quantum (regra explícita da tarefa).
-* **Passos:**
-  1. Manter um conjunto de prontos, cada um com prioridade dinâmica (inicia igual à estática).
-  2. Ao fim de cada quantum (ou quando a CPU fica ociosa): escolher quem tem maior prioridade dinâmica (usando desempate em caso de empate); quem foi escolhido volta à prioridade estática; todos os demais ganham `+aging`.
-  3. Novo processo que chega entra com `prioridade dinâmica = estática`, sem interromper quem está rodando.
-  4. Registrar `"rr_prio_aging"` na fábrica.
-  5. Validar aproximadamente contra o slide do PRIOd (ciente de que os números batem exatamente só com `quantum=1`, já que o slide não usa fatias maiores).
+### 3.2 🔧 Round-Robin com prioridade e envelhecimento
+- **História:** Como usuário, quero um Round-Robin em que a escolha do próximo processo considere prioridade dinâmica com envelhecimento, para equilibrar justiça e importância.
+- **Regras do enunciado:** o envelhecimento ocorre **a cada quantum**, e **não há preempção por prioridade**.
+- **Critérios de aceitação:**
+  - Requer `quantum` e `aging`; erro claro se ausentes.
+  - Cada processo tem prioridade dinâmica (`pd`), que **inicia igual à estática** ao ingressar.
+  - Um processo que chega no meio de um quantum **não interrompe** quem está executando.
+  - A cada fronteira de quantum (quantum esgotado, término antecipado ou CPU ociosa com processos prontos): escolhe-se o pronto de maior `pd`, com empates resolvidos pela regra do enunciado; o escolhido tem `pd` restaurada para a estática; todos os demais prontos recebem `pd += aging` (algoritmo do slide 120).
+  - O processo cujo quantum esgotou volta ao conjunto de prontos com `pd` igual à estática e concorre à próxima escolha.
+  - Registrado como `"rr_prio_aging"`.
+- **Validação:** o slide 122 (RR com quantum 1 e prioridades 1, 2, 3, com e sem envelhecimento) é o teste visual mais próximo do algoritmo 7. O slide 121 (PRIOd) é preemptivo e serve apenas como comparação aproximada.
+- **Decisão a confirmar:** a nota de revisão do projeto adota "só quem espera ganha aging ao completar um quantum" (sem incremento no ócio, na primeira seleção ou em término antecipado). Se a equipe mantiver essa variante, deve justificá-la no documento de decisões. Se preferir seguir o slide 120, aplicar a regra acima. Em caso de dúvida, perguntar ao professor.
 
-### 3.3 Esqueleto da aplicação gráfica
-* **História:** Como usuário do simulador, quero abrir uma janela com painéis para entrada, configuração, resultados e diagrama, para não depender da linha de comando.
-* **Passos:**
-  1. Escolher o framework (`Tkinter + ttk` como opção padrão sem dependências externas).
-  2. Criar a janela principal com placeholders para os 4 painéis (entrada, config, resultado, gantt) e um botão "Executar".
-  3. Ligar o botão a uma chamada mockada para validar o fluxo em paralelo ao Épico 1.
+### 3.3 Esqueleto da aplicação gráfica (bônus)
+- Janela principal com painéis de entrada, configuração, resultados e diagrama, e botão "Executar" (Tkinter + ttk, sem dependências externas). Validação do fluxo com chamada mockada.
 
-### 3.4 Widget de entrada de processos e configuração
-* **História:** Como usuário do simulador, quero inserir/editar/remover processos e definir quantum/aging pela interface, para montar cenários sem editar arquivos manualmente.
-* **Passos:**
-  1. Criar uma tabela editável (`ttk.Treeview` ou grade de `Entry`) com colunas instante/duração/prioridade e botões de adicionar/remover linha.
-  2. Criar campos numéricos para `quantum` e `aging`.
-  3. Adicionar validação simples (mesmas regras da história 1.3) com mensagens de erro visuais.
-  4. *(Opcional)* Botão "Carregar de arquivo" reaproveitando os leitores do Épico 1.
+### 3.4 Entrada de processos e configuração na interface
+- Tabela editável (instante, duração, prioridade) com adicionar/remover, campos `quantum` e `aging`.
+- Mesmas validações da história 1.3, com mensagens visuais.
+- Opcional: carregar de arquivo com os leitores do Épico 1.
 
-### 3.5 Controlador — ligação da GUI com o núcleo
-* **História:** Como usuário do simulador, quero clicar em "Executar" e ver os resultados de todos os algoritmos, para comparar rapidamente sem usar a CLI.
-* **Passos:**
-  1. Criar `controlador.py`: lê os dados dos widgets, monta `Configuracao` e lista de processos.
-  2. Percorrer os algoritmos registrados na fábrica rodando o motor para cada um.
-  3. Guardar a lista de `ResultadoSimulacao` para os widgets de exibição consumirem.
-  4. ⚠️ **Importante:** A GUI nunca deve instanciar algoritmos diretamente — sempre via fábrica, evitando acoplamento.
+### 3.5 Controlador
+- `controlador.py` lê os widgets, monta `Configuracao` e processos, executa todos os algoritmos **via fábrica** e guarda os `ResultadoSimulacao`.
+- A GUI nunca instancia algoritmos diretamente.
+- Os resultados da GUI devem coincidir com os da CLI para a mesma entrada e a mesma semente.
 
 ### 3.6 Widget de resultados
-* **História:** Como usuário do simulador, quero ver tt, tw e trocas de contexto de cada algoritmo lado a lado, para comparar como no quadro comparativo do professor.
-* **Passos:**
-  1. Criar uma aba ou tabela por algoritmo com as métricas consolidadas.
-  2. Montar uma tabela-resumo final no estilo do "Quadro Comparativo" dos slides.
+- Métricas (tt, tw, trocas) por algoritmo lado a lado e tabela-resumo no estilo do "Quadro Comparativo".
 
-### 3.7 Gantt animado (Bônus)
-* **História:** Como usuário do simulador, quero ver um diagrama de Gantt animado avançando tick a tick, para visualizar a execução de forma intuitiva.
-* **Passos:**
-  1. Criar um `Canvas` desenhando uma barra colorida por processo.
-  2. Usar `widget.after(ms, callback)` para avançar um tick por vez, lendo os dados do `DiagramaTempo`.
-  3. Adicionar controles de play/pause/velocidade, se o tempo permitir.
+### 3.7 Gantt animado (bônus)
+- `Canvas` com uma barra colorida por processo, avanço tick a tick com `after()`, lendo do `DiagramaTempo`, e controles de play/pause/velocidade, se o tempo permitir.
