@@ -128,7 +128,29 @@ para aplicar alterações na linha selecionada.
 ### Por que quantum zero não é aceito?
 
 A história 1.4 do planejamento exige `quantum > 0`. As histórias 3.1 e 3.2
-usam uma fatia de tempo positiva para o Round-Robin e seu envelhecimento.
-Interpretar zero como uma fatia ilimitada mudaria essas políticas. Portanto,
+usam um quantum positivo para o Round-Robin e seu envelhecimento.
+Interpretar zero como um quantum ilimitado mudaria essas políticas. Portanto,
 zero continua inválido; algoritmos sem quantum deixam esse campo desabilitado.
 O arquivo de configuração mantém o contrato original de valores positivos.
+
+## Onde encontrar cada parte
+
+| Caminho | Conteúdo |
+|---|---|
+| `SimuladorEscalonamento.pyz` | Interface pronta para executar com Python |
+| `iniciar_interface.py` | Entrada do pacote e verificação com `--verificar` |
+| `src/scheduler/domain/` | Processo, estados e configuração |
+| `src/scheduler/io/` | Leitores e espaço reservado ao escritor de saída |
+| `src/scheduler/schedulers/` | Contrato, fábrica e algoritmos |
+| `src/scheduler/simulator/` | Motor, resultados e diagrama |
+| `src/scheduler/gui/` | Controlador, serviços e widgets Tkinter |
+| `src/scheduler/cli/` | CLI pendente do épico 1 |
+| `config/` | Configuração de quantum e aging |
+| `examples/` | Entrada do PDF para importar na interface |
+| `tests/` | Testes de algoritmos, integração e interface |
+| `docs/` | Decisões, roteiro de apresentação e revisão |
+| `user-stories.md` | Planejamento original da equipe |
+
+Veja [o relatório de revisão](docs/revisao_projeto.md) para requisitos conferidos,
+correções e ambiguidades que ainda precisam de alinhamento com a equipe.
+A GUI é um bônus: não substitui a entrega obrigatória de stdin/stdout da CLI.

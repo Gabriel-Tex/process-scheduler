@@ -225,7 +225,7 @@ class GanttWidget(ttk.LabelFrame):
         self._avancar()
         if self.indice < len(self.resultado.registros):
             fator = float(self.velocidade.get().replace("x", "").replace(",", "."))
-            self._agendamento = self.after(round(500 / fator), self._passo_animado)
+            self._agendamento = self.after(round(1000 / fator), self._passo_animado)
         else:
             self._tocando = False
 

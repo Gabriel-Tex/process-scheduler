@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Ponto de entrada do simulador.
 
 Uso:

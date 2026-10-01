@@ -61,7 +61,14 @@ class ServicoReal:
 
     @staticmethod
     def _classe_motor():
-        modulo = importlib.import_module("src.scheduler.simulator.engine")
+        nome_modulo = "src.scheduler.simulator.engine"
+        try:
+            modulo = importlib.import_module(nome_modulo)
+        except ModuleNotFoundError as erro:
+            # Ausência do motor é prevista; dependência quebrada dentro dele não é.
+            if erro.name == nome_modulo:
+                return None
+            raise
         return getattr(modulo, "MotorSimulacao", None)
 
     def motivo_indisponivel(self) -> str | None:

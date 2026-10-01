@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Interface de linha de comando — AppCLI.
 
 Responsabilidades:

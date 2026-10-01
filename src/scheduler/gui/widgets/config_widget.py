@@ -50,7 +50,7 @@ class ConfigWidget(ttk.LabelFrame):
             self.lista.insert("end", NOMES_ALGORITMOS.get(nome, nome))
         if self.algoritmos:
             self.lista.selection_set(0, "end")
-        self.dica.configure(text=("RR usa quantum; prioridade não interrompe a fatia."
+        self.dica.configure(text=("RR exige quantum > 0; zero não desativa o quantum."
                                  if permitir else "Sem preempção: FCFS, SJF e Prioridade cooperativa."))
         self._selecao_alterada()
 

@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Escalonador SJF — Shortest Job First.
 
 Algoritmo: não-preemptivo.

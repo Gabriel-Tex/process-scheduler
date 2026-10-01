@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Escalonadores por Prioridade Estática — cooperativo e preemptivo.
 
 Dois algoritmos neste módulo (compartilham a mesma base parametrizável):

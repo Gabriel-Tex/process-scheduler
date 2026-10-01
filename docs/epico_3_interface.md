@@ -106,7 +106,7 @@ transferem o quantum consumido para o processo seguinte.
 ### Round-Robin com prioridade e envelhecimento
 
 Maior valor significa maior prioridade. Não há preempção por prioridade no meio
-da fatia. A escolha restaura a prioridade estática do processo selecionado.
+do quantum. A escolha restaura a prioridade estática do processo selecionado.
 Empates seguem a função compartilhada: processo atual, menor tempo restante,
 sorteio. O serviço usa uma nova fonte `random.Random(0)` por execução para
 facilitar a reprodução na apresentação.
@@ -114,7 +114,7 @@ facilitar a reprodução na apresentação.
 Apenas ao fechar um quantum **completo**, incrementar a prioridade dinâmica dos
 processos que estavam esperando. Quem executou não envelhece; uma chegada no
 instante seguinte não recebe envelhecimento retroativo. Não envelhecer na
-primeira seleção, durante ócio ou após fatia incompleta. Uma conclusão exatamente
+primeira seleção, durante ócio ou após quantum incompleto. Uma conclusão exatamente
 no fim do quantum ainda fecha um quantum completo.
 
 Essa é a interpretação adotada do PDF e substitui comentários que falavam em
@@ -145,7 +145,7 @@ cancelamento e atualização da tela pelo serviço substituto.
 5. Selecionar o resultado e mostrar espera individual, reprodução, pausa, avanço,
    **Ir ao fim** e troca de abas com **Ctrl+Tab**.
 6. Explicar a fila do RR simples e o contador de quantum.
-7. Explicar a prioridade dinâmica e o envelhecimento somente na fatia completa.
+7. Explicar a prioridade dinâmica e o envelhecimento somente no quantum completo.
 8. Mostrar um teste de chegada na fronteira e outro de envelhecimento.
 9. Mostrar que a fábrica e o adaptador permitem integrar os demais algoritmos
    sem mudar os widgets.
@@ -157,7 +157,7 @@ suas execuções reais. O motor atual já utiliza o mesmo contrato.
 
 Imagine uma fila para usar a CPU. Quem está no início executa por no máximo
 um quantum. Se acabar seu trabalho, sai; se ainda faltar trabalho, volta ao fim
-da fila. O contador da fatia é zerado ao escolher o próximo processo.
+da fila. O contador do quantum é zerado ao escolher o próximo processo.
 
 Com quantum 2, P1 chegando em 0 e durando 3 segundos, e P2 chegando em 1 e
 durando 1 segundo, a sequência é:
@@ -198,3 +198,6 @@ A chegada de uma prioridade maior continua sem interromper os Round-Robin.
 O botão Voltar cancela o agendamento, limita o índice a zero e repinta somente
 as células afetadas pelo recuo. As abas usam um estilo próprio, com o estado
 selecionado cinza e maior, sem confundir seleção com o estado do mouse.
+
+Em velocidade 1x, cada avanço de um segundo usa um intervalo nominal de 1000 ms.
+A animação é ilustrativa e depende do agendamento do Tk, não é um relógio de tempo real.

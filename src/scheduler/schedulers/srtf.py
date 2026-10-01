@@ -1,4 +1,6 @@
 """
+PENDENTE: este arquivo contém apenas planejamento, não implementação.
+
 Escalonador SRTF — Shortest Remaining Time First.
 
 Algoritmo: preemptivo.

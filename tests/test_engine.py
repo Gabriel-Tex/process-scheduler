@@ -101,3 +101,29 @@ class MotorTests(unittest.TestCase):
         ps, _ = self.simular([(0, 2, 1)])
         with self.assertRaises(ValueError):
             MotorSimulacao().executar(ps, criar("rr", config), config)
+
+    def test_invariantes_em_cenarios_variados_dos_dois_rr(self):
+        # Oráculo independente: contar execução e espera diretamente nos registros.
+        rng = random.Random(42)
+        for nome in ("rr", "rr_prio_aging"):
+            for caso in range(40):
+                dados = [(rng.randrange(8), rng.randrange(1, 7), rng.randrange(6))
+                         for _ in range(rng.randrange(1, 7))]
+                with self.subTest(nome=nome, caso=caso):
+                    ps, r = self.simular(dados, quantum=rng.randrange(1, 5), nome=nome)
+                    for processo in ps:
+                        executados = sum(pid == processo.id for pid, _ in r.registros)
+                        espera = sum(processo.id in presentes and pid != processo.id
+                                     for pid, presentes in r.registros)
+                        self.assertEqual(executados, processo.tempo_processamento)
+                        self.assertEqual(espera, dict(r.esperas)[processo.id])
+                        self.assertEqual(espera, processo.instante_termino
+                                         - processo.instante_criacao - executados)
+                    self.assertEqual(r.tw_medio, sum(dict(r.esperas).values()) / len(ps))
+                    self.assertEqual(r.trocas_contexto, sum(
+                        a is not None and b is not None and a != b
+                        for (a, _), (b, _) in zip(r.registros, r.registros[1:])))
+                    for t, (pid, presentes) in enumerate(r.registros):
+                        self.assertEqual(presentes, frozenset(
+                            p.id for p in ps if p.instante_criacao <= t < p.instante_termino))
+                        self.assertTrue(pid in presentes if presentes else pid is None)

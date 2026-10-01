@@ -75,6 +75,31 @@ class JanelaTests(unittest.TestCase):
         g.carregar(ServicoDemonstrativo.carregar()[0])
         self.assertIsNone(g._agendamento)
 
+    def test_velocidades_representam_segundos(self):
+        self.app.demonstrar()
+        self.app.update()
+        g = self.app.gantt
+        for velocidade, atraso in (("0,5x", 2000), ("1x", 1000), ("2x", 500), ("4x", 250)):
+            with self.subTest(velocidade=velocidade):
+                g.pause()
+                g.velocidade.set(velocidade)
+                with patch.object(g, "after", return_value=None) as agendar:
+                    g.play()
+                    # after_idle também usa after; conferir somente temporizadores.
+                    temporizadores = [c.args for c in agendar.call_args_list
+                                      if isinstance(c.args[0], int)]
+                    self.assertEqual(temporizadores, [(atraso, g._passo_animado)])
+
+    def test_abre_quando_arquivo_motor_nao_existe(self):
+        self.app.fechar()
+        erro = ModuleNotFoundError(name="src.scheduler.simulator.engine")
+        with patch("src.scheduler.gui.services.importlib.import_module", side_effect=erro):
+            self.app = AppGUI()
+        self.app.withdraw()
+        self.assertIn("disabled", self.app.botao_executar.state())
+        self.app.demonstrar()
+        self.assertIn("DEMONSTRAÇÃO", self.app.aviso.get())
+
     def test_texto_sem_registros_desabilita_animacao(self):
         r = replace(ServicoDemonstrativo.carregar()[0], registros=None)
         self.app.gantt.carregar(r)

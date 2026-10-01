@@ -92,6 +92,18 @@ class AdaptadorTests(unittest.TestCase):
             with self.assertRaises(RuntimeError):
                 s.executar([], Configuracao(), ["rr"])
 
+    def test_arquivo_motor_ausente_e_tratado(self):
+        erro = ModuleNotFoundError(name="src.scheduler.simulator.engine")
+        with patch("src.scheduler.gui.services.importlib.import_module", side_effect=erro):
+            self.assertIsNone(ServicoReal._classe_motor())
+            self.assertIn("épico 1", ServicoReal().motivo_indisponivel())
+
+    def test_dependencia_quebrada_do_motor_nao_e_ocultada(self):
+        erro = ModuleNotFoundError(name="dependencia_interna")
+        with patch("src.scheduler.gui.services.importlib.import_module", side_effect=erro):
+            with self.assertRaises(ModuleNotFoundError):
+                ServicoReal._classe_motor()
+
     def test_motor_recebe_instancias_frescas_e_adaptador_devolve_resultados(self):
         entradas = []
         resultado = self.resultado()
