@@ -1,8 +1,8 @@
-"""Round-Robin com prioridade dinâmica; envelhecimento por quantum completo.
+"""Round-Robin com prioridade dinâmica; envelhecimento por fronteira de quantum.
 
-Ao fechar uma fatia completa, apenas os processos já em espera recebem aging.
-Não há envelhecimento na primeira escolha, no ócio ou em fatia incompleta.
-Maior número = maior prioridade; a escolha restaura a prioridade estática.
+A cada fronteira de quantum (quantum esgotado, término antecipado, ou CPU ociosa com prontos):
+1. O processo escolhido tem pd restaurada para pe.
+2. Todos os demais prontos recebem pd += aging.
 """
 import random
 from src.scheduler.domain.configuration import Configuracao
@@ -20,7 +20,6 @@ class RoundRobinAging(EscalonadorBase):
         self.quantum = configuracao.quantum
         self.aging = configuracao.aging
         self.aleatorio = aleatorio
-        # Lista evita chaves obsoletas de heap após alterar prioridades.
         self.prontos: list[Processo] = []
         self.consumido = 0
 
@@ -29,29 +28,41 @@ class RoundRobinAging(EscalonadorBase):
         self.prontos.append(processo)
 
     def selecionar_proximo(self, tempo: int, em_execucao: Processo | None) -> Processo | None:
+        # Se está rodando e não esgotou quantum nem terminou, continua
         if em_execucao is not None and em_execucao.tempo_restante > 0:
             if self.consumido < self.quantum:
                 return em_execucao
+            # Se esgotou quantum, volta com pd = pe
+            em_execucao.prioridade_dinamica = em_execucao.prioridade_estatica
             self.prontos.append(em_execucao)
+
+        # Chegamos a uma fronteira de quantum (esgotou, terminou antecipado ou era ocioso)
         self.consumido = 0
+        
+        # Filtrar terminados (caso existam)
         self.prontos = [p for p in self.prontos if p.tempo_restante > 0]
+        
         if not self.prontos:
             return None
+            
+        # Selecionar o maior pd
         maior = max(p.prioridade_dinamica for p in self.prontos)
         candidatos = [p for p in self.prontos if p.prioridade_dinamica == maior]
         escolhido = desempatar(candidatos, em_execucao, self.aleatorio)
+        
         self.prontos = [p for p in self.prontos if p is not escolhido]
+        
+        # O escolhido tem pd restaurada para pe
         escolhido.prioridade_dinamica = escolhido.prioridade_estatica
+        
+        # Todos os demais prontos recebem pd += aging
+        for p in self.prontos:
+            p.prioridade_dinamica += self.aging
+            
         return escolhido
 
     def ao_finalizar_tick(self, tempo: int, em_execucao: Processo | None) -> None:
-        if em_execucao is None:
-            return
-        self.consumido += 1
-        if self.consumido == self.quantum:
-            for processo in self.prontos:
-                if processo.tempo_restante > 0:
-                    processo.prioridade_dinamica += self.aging
-
+        if em_execucao is not None:
+            self.consumido += 1
 
 registrar("rr_prio_aging", RoundRobinAging)

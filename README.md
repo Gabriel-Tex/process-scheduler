@@ -45,7 +45,7 @@ Como alguns aspetos na literatura podem ser ambíguos, estas são as interpreta�
   - `Turnaround` (Tempo de vida) = `Término - Instante de Criação`.
   - `Espera (tw)` = `Turnaround - Duração Original (Tempo de processamento)`.
 - **Preempção**: Interromper o processo caso chegue um novo em estado PRONTO com prioridade maior ou num quantum que expire.
-- **Round-Robin com Prioridade e Envelhecimento**: Aumentar a prioridade (*aging*) das tarefas preteridas acontece **apenas** quando se encerra um quantum completo. Assim, trocas prematuras do escalonador ou entradas em CPU ociosa impedem uma inflação indevida da prioridade. Para resolução de empates adota-se os seguintes critérios de primazia: a) Processo em execução atual; b) Menor tempo restante; c) Sorteio aleatório fixo reproduzível.
+- **Round-Robin com Prioridade e Envelhecimento**: Aumentar a prioridade (*aging*) das tarefas em espera ocorre a cada **fronteira de quantum** (quantum esgotado, término antecipado de processo ou CPU ociosa com tarefas prontas). Para resolução de empates, aplicam-se por ordem os critérios: a) Processo em execução atual; b) Menor tempo restante; c) Sorteio aleatório reproduzível. Processos que chegam a meio do quantum não interrompem a execução.
 - **Tratamento Fila FIFO**: No RR clássico, as chegadas de novos processos no instante `t` entram na fila antes do re-enfileiramento do processo que viu o seu quantum terminar no instante `t`.
 
 > Mais detalhes de design interno estão disponíveis em `docs/decisoes_implementacao.md`.

@@ -278,4 +278,4 @@ O Canvas do Tkinter foi desenhado para reaproveitar as células geradas. Em vez 
 
 ### 3. Convenções dos Round-Robin
 - **Simples (FIFO)**: Usa uma estrutura `deque`. O encerramento natural de processo remove o sujeito do ciclo; ao esgotar quantum incompleto, volta ao fim e o motor despacha entradas no instante *t* previamente antes da inserção recuada do exausto.
-- **Envelhecimento**: Atualizações de aging priorizam-se exclusivamente aos blocos submetidos. O incremento recai perante os elementos estacionados num momento limiar em que a CPU completa exatamente 1 ciclo de quantum global.
+- **Envelhecimento**: O envelhecimento (incremento da prioridade dinâmica) ocorre a cada fronteira de quantum. Uma fronteira é caracterizada por: quantum esgotado, término antecipado do processo, ou CPU ociosa mas com processos prontos. Nessas fronteiras, o processo escolhido restaura a sua prioridade, enquanto todos os restantes que aguardavam sofrem um incremento de aging (conforme D-04). Processos que chegam no decorrer de um quantum não sofrem e não provocam preempção, sendo apenas envelhecidos na fronteira subsequente.

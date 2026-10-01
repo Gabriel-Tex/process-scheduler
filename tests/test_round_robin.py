@@ -79,31 +79,35 @@ class AgingTests(unittest.TestCase):
         self.assertEqual(ticks(self.rr(), [processo("A"), processo("B", 1, 1, 100)]),
                          ["A", "A", "B", "A"])
 
-    def test_envelhece_so_ao_completar_quantum(self):
+    def test_envelhecimento_fronteiras(self):
         rr = self.rr(2, 3)
         a, b = processo("A", prioridade=10), processo("B")
         rr.ao_chegar(a, 0)
         rr.ao_chegar(b, 0)
-        atual = rr.selecionar_proximo(0, None)
+        atual = rr.selecionar_proximo(0, None) # fronteira: b ganha aging, a restaurado
         self.assertIs(atual, a)
-        self.assertEqual(b.prioridade_dinamica, 1)
+        self.assertEqual(b.prioridade_dinamica, 4)
         a.executar_um_tick()
         rr.ao_finalizar_tick(0, a)
-        self.assertEqual(b.prioridade_dinamica, 1)
+        self.assertEqual(b.prioridade_dinamica, 4)
         a.executar_um_tick()
         rr.ao_finalizar_tick(1, a)
-        self.assertEqual(b.prioridade_dinamica, 4)
+        
+        atual = rr.selecionar_proximo(2, a) # fronteira (esgotou quantum)
+        self.assertEqual(b.prioridade_dinamica, 7)
         self.assertEqual(a.prioridade_dinamica, 10)
 
-    def test_fatia_incompleta_nao_envelhece(self):
+    def test_fatia_incompleta_envelhece(self):
         rr = self.rr(3, 2)
         a, b = processo("A", duracao=1, prioridade=10), processo("B")
         rr.ao_chegar(a, 0)
         rr.ao_chegar(b, 0)
         self.assertIs(rr.selecionar_proximo(0, None), a)
+        self.assertEqual(b.prioridade_dinamica, 3)
         a.executar_um_tick()
         rr.ao_finalizar_tick(0, a)
         self.assertIs(rr.selecionar_proximo(1, a), b)
+        # fronteira de término antecipado (a duracao=1). b é escolhido, pd cai pra 1
         self.assertEqual(b.prioridade_dinamica, 1)
 
     def test_quantum_completo_com_termino_envelhece(self):
@@ -112,9 +116,9 @@ class AgingTests(unittest.TestCase):
         rr.ao_chegar(a, 0)
         rr.ao_chegar(b, 0)
         rr.selecionar_proximo(0, None)
+        self.assertEqual(b.prioridade_dinamica, 3)
         a.executar_um_tick()
         rr.ao_finalizar_tick(0, a)
-        self.assertEqual(b.prioridade_dinamica, 3)
 
     def test_chegada_na_fronteira_nao_recebe_aging_retroativo(self):
         rr = self.rr(1, 5)
