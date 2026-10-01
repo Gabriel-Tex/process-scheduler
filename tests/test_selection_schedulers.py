@@ -4,6 +4,7 @@ from src.scheduler.domain.configuration import Configuracao
 from src.scheduler.domain.process import Processo
 from src.scheduler.schedulers.factory import criar, listar_algoritmos
 from src.scheduler.schedulers.fcfs import FCFS
+from src.scheduler.schedulers.sjf import SJF
 
 
 def test_fcfs_escolhe_menor_instante_de_criacao() -> None:
@@ -51,3 +52,38 @@ def test_fcfs_desempate_absoluto_usa_gerador_injetado() -> None:
 def test_fcfs_registrado_na_fabrica() -> None:
     assert "fcfs" in listar_algoritmos()
     assert isinstance(criar("fcfs", Configuracao(), random.Random(1)), FCFS)
+
+
+def test_sjf_escolhe_menor_duracao_original() -> None:
+    processo_longo = Processo("P1", 0, 6, 1)
+    processo_curto = Processo("P2", 0, 2, 1)
+    escalonador = SJF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_longo, 0)
+    escalonador.ao_chegar(processo_curto, 0)
+
+    assert escalonador.selecionar_proximo(0, None) is processo_curto
+
+
+def test_sjf_mantem_processo_em_execucao_apesar_de_chegada_curta() -> None:
+    processo_atual = Processo("P1", 0, 8, 1)
+    processo_curto = Processo("P2", 1, 1, 1)
+    escalonador = SJF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_curto, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_sjf_usa_duracao_original_e_nao_tempo_restante() -> None:
+    processo_parcial = Processo("P1", 0, 5, 1)
+    processo_parcial.tempo_restante = 1
+    processo_curto = Processo("P2", 1, 3, 1)
+    escalonador = SJF(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_parcial, 2)
+    escalonador.ao_chegar(processo_curto, 2)
+
+    assert escalonador.selecionar_proximo(2, None) is processo_curto
+
+
+def test_sjf_registrado_na_fabrica() -> None:
+    assert "sjf" in listar_algoritmos()
+    assert isinstance(criar("sjf", Configuracao(), random.Random(1)), SJF)
