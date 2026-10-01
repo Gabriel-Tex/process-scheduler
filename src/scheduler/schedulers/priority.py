@@ -12,7 +12,7 @@ PrioridadeCooperativa (nome interno: 'prioc')
     Validação manual (dataset Seção 3):
         tt médio = 6,6 | tw médio = 3,8 | trocas de contexto = 4
 
-PrioridadePreemptiva (nome interno: 'priop', ainda não implementada)
+PrioridadePreemptiva (nome interno: 'priop')
     Algoritmo: preemptivo.
     Chave de seleção: maior prioridade_estatica, reavaliada a cada tick.
     Herda de EscalonadorPorChave:
@@ -56,3 +56,21 @@ class PrioridadeCooperativa(EscalonadorPorChave):
 
 
 registrar("prioc", PrioridadeCooperativa)
+
+
+class PrioridadePreemptiva(EscalonadorPorChave):
+    """Escalona preemptivamente; valores maiores representam maior prioridade."""
+
+    def __init__(
+        self, configuracao: Configuracao, aleatorio: random.Random | None = None
+    ) -> None:
+        """Configura a seleção por prioridade estática com preempção."""
+        super().__init__(
+            configuracao,
+            _chave_prioridade_estatica,
+            preemptivo=True,
+            aleatorio=aleatorio,
+        )
+
+
+registrar("priop", PrioridadePreemptiva)

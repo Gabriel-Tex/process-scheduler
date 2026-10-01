@@ -4,7 +4,10 @@ from src.scheduler.domain.configuration import Configuracao
 from src.scheduler.domain.process import Processo
 from src.scheduler.schedulers.factory import criar, listar_algoritmos
 from src.scheduler.schedulers.fcfs import FCFS
-from src.scheduler.schedulers.priority import PrioridadeCooperativa
+from src.scheduler.schedulers.priority import (
+    PrioridadeCooperativa,
+    PrioridadePreemptiva,
+)
 from src.scheduler.schedulers.sjf import SJF
 from src.scheduler.schedulers.srtf import SRTF
 
@@ -124,6 +127,50 @@ def test_prioc_registrado_na_fabrica() -> None:
     assert "prioc" in listar_algoritmos()
     assert isinstance(
         criar("prioc", Configuracao(), random.Random(1)), PrioridadeCooperativa
+    )
+
+
+def test_priop_preempta_quando_chega_prioridade_maior() -> None:
+    processo_atual = Processo("P1", 0, 8, 3)
+    processo_prioritario = Processo("P2", 1, 2, 8)
+    escalonador = PrioridadePreemptiva(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_prioritario, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_prioritario
+
+
+def test_priop_mantem_processo_diante_de_prioridade_menor() -> None:
+    processo_atual = Processo("P1", 0, 8, 8)
+    processo_menos_prioritario = Processo("P2", 1, 2, 3)
+    escalonador = PrioridadePreemptiva(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_menos_prioritario, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_priop_empate_mantem_mesma_instancia_em_execucao() -> None:
+    processo_atual = Processo("P1", 0, 8, 5)
+    processo_recente = Processo("P2", 1, 2, 5)
+    escalonador = PrioridadePreemptiva(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_recente, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_priop_com_cpu_ociosa_escolhe_maior_prioridade() -> None:
+    processo_prioridade_baixa = Processo("P1", 0, 2, 3)
+    processo_prioridade_alta = Processo("P2", 0, 8, 9)
+    escalonador = PrioridadePreemptiva(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_prioridade_baixa, 0)
+    escalonador.ao_chegar(processo_prioridade_alta, 0)
+
+    assert escalonador.selecionar_proximo(0, None) is processo_prioridade_alta
+
+
+def test_priop_registrado_na_fabrica() -> None:
+    assert "priop" in listar_algoritmos()
+    assert isinstance(
+        criar("priop", Configuracao(), random.Random(1)), PrioridadePreemptiva
     )
 
 
