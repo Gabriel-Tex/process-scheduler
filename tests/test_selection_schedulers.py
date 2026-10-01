@@ -4,6 +4,7 @@ from src.scheduler.domain.configuration import Configuracao
 from src.scheduler.domain.process import Processo
 from src.scheduler.schedulers.factory import criar, listar_algoritmos
 from src.scheduler.schedulers.fcfs import FCFS
+from src.scheduler.schedulers.priority import PrioridadeCooperativa
 from src.scheduler.schedulers.sjf import SJF
 
 
@@ -87,3 +88,39 @@ def test_sjf_usa_duracao_original_e_nao_tempo_restante() -> None:
 def test_sjf_registrado_na_fabrica() -> None:
     assert "sjf" in listar_algoritmos()
     assert isinstance(criar("sjf", Configuracao(), random.Random(1)), SJF)
+
+
+def test_prioc_escolhe_maior_prioridade_numerica() -> None:
+    processo_prioridade_baixa = Processo("P1", 0, 3, 2)
+    processo_prioridade_alta = Processo("P2", 0, 3, 9)
+    escalonador = PrioridadeCooperativa(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_prioridade_baixa, 0)
+    escalonador.ao_chegar(processo_prioridade_alta, 0)
+
+    assert escalonador.selecionar_proximo(0, None) is processo_prioridade_alta
+
+
+def test_prioc_nao_preempta_processo_em_execucao() -> None:
+    processo_atual = Processo("P1", 0, 8, 1)
+    processo_prioritario = Processo("P2", 1, 2, 10)
+    escalonador = PrioridadeCooperativa(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_prioritario, 1)
+
+    assert escalonador.selecionar_proximo(1, processo_atual) is processo_atual
+
+
+def test_prioc_desempata_prioridade_igual_por_menor_tempo_restante() -> None:
+    processo_longo = Processo("P1", 0, 6, 5)
+    processo_curto = Processo("P2", 0, 2, 5)
+    escalonador = PrioridadeCooperativa(Configuracao(), random.Random(1))
+    escalonador.ao_chegar(processo_longo, 0)
+    escalonador.ao_chegar(processo_curto, 0)
+
+    assert escalonador.selecionar_proximo(0, None) is processo_curto
+
+
+def test_prioc_registrado_na_fabrica() -> None:
+    assert "prioc" in listar_algoritmos()
+    assert isinstance(
+        criar("prioc", Configuracao(), random.Random(1)), PrioridadeCooperativa
+    )
